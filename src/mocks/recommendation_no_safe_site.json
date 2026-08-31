@@ -1,0 +1,19 @@
+{
+  "status": "no_safe_site",
+  "closest_misses": [
+    {
+      "id": "SITE-004",
+      "name": "Old Plantation Warehouse",
+      "distance_km": 6.2,
+      "failed_reasons": ["High landslide runout risk in 100m radius", "Capacity shortfall: max 1200"]
+    },
+    {
+      "id": "SITE-005",
+      "name": "Riverbank Transit Shed",
+      "distance_km": 4.1,
+      "failed_reasons": ["Within 50-year flood zone level"]
+    }
+  ],
+  "failed_criteria": ["capacity", "safety"],
+  "capacity_shortfall": 800
+}

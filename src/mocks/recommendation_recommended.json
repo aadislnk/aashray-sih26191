@@ -1,0 +1,36 @@
+{
+  "status": "recommended",
+  "site": {
+    "id": "SITE-001",
+    "name": "Meppadi Relief Camp",
+    "rank": 1,
+    "suitability": "high",
+    "safety": "high",
+    "capacity": 3400,
+    "required_capacity": 3200,
+    "allocated_population": 3200,
+    "binding_sector": "water",
+    "distance_km": 8.5,
+    "status": "recommended"
+  },
+  "alternatives": [
+    {
+      "id": "SITE-002",
+      "name": "Kalpetta High Ground School Zone",
+      "rank": 2,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 2500,
+      "distance_km": 14.2
+    },
+    {
+      "id": "SITE-003",
+      "name": "Vythiri Community Stadium Centre",
+      "rank": 3,
+      "suitability": "medium",
+      "safety": "medium",
+      "capacity": 1800,
+      "distance_km": 19.0
+    }
+  ]
+}

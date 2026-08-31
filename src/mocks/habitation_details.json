@@ -1,0 +1,124 @@
+{
+  "KL-WYD-000123": {
+    "id": "KL-WYD-000123",
+    "name": "Wayanad Habitation 1 - Chooralmala",
+    "risk_score": 91,
+    "priority": "P1",
+    "population": 3200,
+    "confidence": "high",
+    "freshness_class": "near_real_time",
+    "computed_at": "2026-01-15T10:35:00Z",
+    "hazards": [
+      { "hazard": "flood", "susceptibility": "high", "confidence": "high", "applicable": true },
+      { "hazard": "landslide", "susceptibility": "high", "confidence": "high", "applicable": true },
+      { "hazard": "coastal_erosion", "susceptibility": null, "confidence": null, "applicable": false },
+      { "hazard": "extreme_rainfall", "susceptibility": "high", "confidence": "high", "applicable": true }
+    ],
+    "reason_codes": [
+      { "label": "Severe compound flash flood & debris flow", "evidence": "3 catastrophic flood and silt deposition events in last 5 years", "confidence": "high" },
+      { "label": "Critical single-point evacuation access", "evidence": "Single arterial bridge bottleneck, highly prone to structural blockage", "confidence": "high" },
+      { "label": "High residential density on active alluvial fan", "evidence": "Over 75% of structures situated within 60m of primary torrential channel", "confidence": "medium" }
+    ]
+  },
+  "KL-WYD-000124": {
+    "id": "KL-WYD-000124",
+    "name": "Wayanad Habitation 2 - Meppadi Valley",
+    "risk_score": 87,
+    "priority": "P1",
+    "population": 2850,
+    "confidence": "high",
+    "freshness_class": "near_real_time",
+    "computed_at": "2026-01-15T10:20:00Z",
+    "hazards": [
+      { "hazard": "flood", "susceptibility": "medium", "confidence": "high", "applicable": true },
+      { "hazard": "landslide", "susceptibility": "high", "confidence": "high", "applicable": true },
+      { "hazard": "coastal_erosion", "susceptibility": null, "confidence": null, "applicable": false },
+      { "hazard": "extreme_rainfall", "susceptibility": "high", "confidence": "high", "applicable": true }
+    ],
+    "reason_codes": [
+      { "label": "Steep slope debris flow trajectory", "evidence": "Slope angles exceeding 32 degrees directly upslope from habitation zone", "confidence": "high" },
+      { "label": "Intense localized rainfall trigger", "evidence": "Monsoon rainfall anomaly index exceeding 95th historical percentile", "confidence": "high" },
+      { "label": "Poor subsurface drainage capacity", "evidence": "Saturated topsoil layer over impermeable bedrock with high shear stress", "confidence": "medium" }
+    ]
+  },
+  "KL-WYD-000125": {
+    "id": "KL-WYD-000125",
+    "name": "Wayanad Habitation 3 - Mundakkai Hill",
+    "risk_score": 74,
+    "priority": "P2",
+    "population": 1900,
+    "confidence": "medium",
+    "freshness_class": "periodic",
+    "computed_at": "2026-01-14T18:45:00Z",
+    "hazards": [
+      { "hazard": "flood", "susceptibility": "low", "confidence": "medium", "applicable": true },
+      { "hazard": "landslide", "susceptibility": "high", "confidence": "high", "applicable": true },
+      { "hazard": "coastal_erosion", "susceptibility": null, "confidence": null, "applicable": false },
+      { "hazard": "extreme_rainfall", "susceptibility": "medium", "confidence": "medium", "applicable": true }
+    ],
+    "reason_codes": [
+      { "label": "Elevated ridge slope instability", "evidence": "Historical slope slippage detected in satellite InSAR coherence scans", "confidence": "high" },
+      { "label": "Restricted upper catchment access", "evidence": "Narrow unpaved access corridor vulnerable to localized rockfalls", "confidence": "medium" }
+    ]
+  },
+  "KL-WYD-000126": {
+    "id": "KL-WYD-000126",
+    "name": "Wayanad Habitation 4 - Vythiri Ridge",
+    "risk_score": 68,
+    "priority": "P2",
+    "population": 4100,
+    "confidence": "high",
+    "freshness_class": "periodic",
+    "computed_at": "2026-01-14T14:10:00Z",
+    "hazards": [
+      { "hazard": "flood", "susceptibility": "medium", "confidence": "medium", "applicable": true },
+      { "hazard": "landslide", "susceptibility": "medium", "confidence": "high", "applicable": true },
+      { "hazard": "coastal_erosion", "susceptibility": null, "confidence": null, "applicable": false },
+      { "hazard": "extreme_rainfall", "susceptibility": "high", "confidence": "high", "applicable": true }
+    ],
+    "reason_codes": [
+      { "label": "High annual precipitation concentration", "evidence": "Micro-climatic high-rainfall pocket receiving >3500mm annually", "confidence": "high" },
+      { "label": "Stormwater runoff overflow", "evidence": "Natural drainage culverts reach capacity during 24h heavy downpours", "confidence": "medium" }
+    ]
+  },
+  "KL-WYD-000127": {
+    "id": "KL-WYD-000127",
+    "name": "Wayanad Habitation 5 - Mananthavady North",
+    "risk_score": 45,
+    "priority": "P3",
+    "population": 5300,
+    "confidence": "medium",
+    "freshness_class": "periodic",
+    "computed_at": "2026-01-13T09:15:00Z",
+    "hazards": [
+      { "hazard": "flood", "susceptibility": "medium", "confidence": "medium", "applicable": true },
+      { "hazard": "landslide", "susceptibility": "low", "confidence": "high", "applicable": true },
+      { "hazard": "coastal_erosion", "susceptibility": null, "confidence": null, "applicable": false },
+      { "hazard": "extreme_rainfall", "susceptibility": "low", "confidence": "medium", "applicable": true }
+    ],
+    "reason_codes": [
+      { "label": "River tributary bank overflow", "evidence": "Seasonal low-lying water logging during peak dam discharge releases", "confidence": "medium" },
+      { "label": "Adequate multi-directional road egress", "evidence": "Multiple all-weather roads available for planned evacuation", "confidence": "high" }
+    ]
+  },
+  "KL-WYD-000128": {
+    "id": "KL-WYD-000128",
+    "name": "Wayanad Habitation 6 - Kalpetta East",
+    "risk_score": 28,
+    "priority": "P4",
+    "population": 6200,
+    "confidence": "high",
+    "freshness_class": "static",
+    "computed_at": "2026-01-10T12:00:00Z",
+    "hazards": [
+      { "hazard": "flood", "susceptibility": "low", "confidence": "high", "applicable": true },
+      { "hazard": "landslide", "susceptibility": "low", "confidence": "high", "applicable": true },
+      { "hazard": "coastal_erosion", "susceptibility": null, "confidence": null, "applicable": false },
+      { "hazard": "extreme_rainfall", "susceptibility": "low", "confidence": "high", "applicable": true }
+    ],
+    "reason_codes": [
+      { "label": "Stable plateau terrain", "evidence": "Low slope gradient (<8 degrees) and robust urban stormwater infrastructure", "confidence": "high" },
+      { "label": "Comprehensive emergency services access", "evidence": "Direct access to state highway and multiple regional hospital facilities", "confidence": "high" }
+    ]
+  }
+}
