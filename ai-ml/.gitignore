@@ -1,0 +1,54 @@
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Raw source datasets
+data/raw/
+
+# Large geospatial / raster outputs
+data/processed/**/*.tif
+data/processed/**/*.tiff
+data/processed/**/*.nc
+data/processed/**/*.pdf
+data/processed/**/*.zip
+data/processed/**/*.gpkg
+data/processed/**/*.shp
+data/processed/**/*.dbf
+data/processed/**/*.shx
+data/processed/**/*.prj
+data/processed/**/*.cpg
+data/processed/**/*.GeoJSON
+data/processed/**/*.geojson
+
+# Generated images
+data/processed/**/maps/
+*.png
+*.jpg
+*.jpeg
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.cache
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3

@@ -1,0 +1,12 @@
+project:
+  name: "AASHRAY"
+  module: "AI-ML"
+
+data:
+  raw: "../data/raw"
+  processed: "../data/processed"
+  reference: "../data/reference"
+
+output:
+  layers: "../src/output/layers"
+  records: "../src/output/records"

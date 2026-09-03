@@ -1,0 +1,14 @@
+spatial:
+  crs: "EPSG:4326"
+
+analysis:
+  pilot_district: "Wayanad"
+  pilot_state: "Kerala"
+
+  villages:
+    - "Mundakkai"
+    - "Chooralmala"
+    - "Attamala"
+    - "Kottappadi"
+    - "Velarimala"
+    - "Thrikaipetta"
