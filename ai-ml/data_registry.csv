@@ -1,0 +1,11 @@
+dataset_name,category,source,url,format,resolution,coverage,purpose,status
+Village Boundaries,Administrative,Census/OGD,https://www.data.gov.in/,Vector,Variable,Wayanad,Define pilot habitations,Pending
+DEM,Geospatial,Copernicus DEM,https://dataspace.copernicus.eu/,Raster,30m,Wayanad,Elevation and terrain features,Pending
+Rainfall,Meteorological,IMD,https://mausam.imd.gov.in/,Raster/Tabular,Variable,Wayanad,Extreme rainfall and hazard modeling,Pending
+Historical Flood,Flood,ISRO/NRSC Bhuvan,https://bhuvan-app1.nrsc.gov.in/,Raster,Variable,Wayanad,Flood calibration and validation,Pending
+Landslide Inventory,Landslide,GSI Bhusanket,https://bhusanket.gsi.gov.in/,Vector,Variable,Wayanad,Landslide calibration and validation,Pending
+Land Cover,Land Cover,ESA WorldCover,https://esa-worldcover.org/,Raster,10m,Wayanad,Land-cover features,Pending
+Population,Population,Census/OGD,https://www.data.gov.in/,Tabular,Variable,Wayanad,Population exposure,Pending
+Spatial Population,Population,WorldPop,https://www.worldpop.org/,Raster,Variable,Wayanad,Population distribution,Pending
+Roads and Rivers,Infrastructure,OpenStreetMap,https://www.openstreetmap.org/,Vector,Variable,Wayanad,Accessibility and hazard features,Pending
+Hospitals and Shelters,Infrastructure,OpenStreetMap,https://www.openstreetmap.org/,Vector,Variable,Wayanad,Vulnerability and coping capacity,Pending
