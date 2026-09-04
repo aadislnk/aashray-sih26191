@@ -7,36 +7,13 @@ from pyproj import Transformer
 
 
 # ============================================================
-# PATHS
-# ============================================================
-
-BASE_DIR = Path(__file__).resolve().parents[2]
-
-SUMMARY_FILE = (
-    BASE_DIR
-    / "data"
-    / "processed"
-    / "multi_hazard"
-    / "kendrapara_multi_hazard_summary.csv"
-)
-
-EXPOSURE_FILE = (
-    BASE_DIR
-    / "data"
-    / "processed"
-    / "features"
-    / "kendrapara_coastal_exposure_features.csv"
-)
-
-
-# ============================================================
-# FASTAPI APP
+# APP
 # ============================================================
 
 app = FastAPI(
     title="AASHRAY AI/ML API",
-    description="Multi-hazard disaster risk API for Kendrapara, Odisha",
-    version="1.1.0",
+    description="AASHRAY Kerala Village Risk API",
+    version="2.0.0"
 )
 
 app.add_middleware(
@@ -49,94 +26,53 @@ app.add_middleware(
 
 
 # ============================================================
+# PATHS
+# ============================================================
+
+BASE = Path(__file__).resolve().parents[2]
+
+DATA_FILE = (
+    BASE
+    / "data"
+    / "processed"
+    / "administrative"
+    / "kerala_700_selected_villages.csv"
+)
+
+
+# ============================================================
 # LOAD DATA
 # ============================================================
 
-if not SUMMARY_FILE.exists():
-    raise FileNotFoundError(f"Missing file: {SUMMARY_FILE}")
+if not DATA_FILE.exists():
+    raise FileNotFoundError(
+        f"700 village dataset not found: {DATA_FILE}"
+    )
 
-if not EXPOSURE_FILE.exists():
-    raise FileNotFoundError(f"Missing file: {EXPOSURE_FILE}")
+df = pd.read_csv(DATA_FILE)
 
-
-risk_df = pd.read_csv(SUMMARY_FILE,dtype={"vlcode":str})
-exposure_df = pd.read_csv(EXPOSURE_FILE,dtype={"vlcode":str})
-
-risk_df["vlcode"] = risk_df["vlcode"].astype(str).str.strip()
-exposure_df["vlcode"] = exposure_df["vlcode"].astype(str).str.strip()
+df.columns = df.columns.str.strip()
 
 
 # ============================================================
-# CENTROID CONVERSION
-# EPSG:7755 -> EPSG:4326
+# COORDINATE TRANSFORMATION
 # ============================================================
+
+# Kerala village GeoJSON uses geographic coordinates.
+# Keep transformer available for future spatial processing.
 
 transformer = Transformer.from_crs(
-    "EPSG:7755",
     "EPSG:4326",
-    always_xy=True,
-)
-
-
-def convert_centroid(row):
-    try:
-        x = float(row["centroid_x"])
-        y = float(row["centroid_y"])
-
-        lon,lat = transformer.transform(x,y)
-
-        return {
-            "lat":lat,
-            "lon":lon,
-        }
-
-    except Exception:
-        return {
-            "lat":None,
-            "lon":None,
-        }
-
-
-centroids = exposure_df.apply(convert_centroid,axis=1)
-
-exposure_df["centroid_lat"] = [
-    item["lat"] for item in centroids
-]
-
-exposure_df["centroid_lon"] = [
-    item["lon"] for item in centroids
-]
-
-
-# ============================================================
-# MERGE RISK + LOCATION DATA
-# ============================================================
-
-location_columns = [
-    "vlcode",
-    "block",
-    "district",
-    "centroid_lat",
-    "centroid_lon",
-]
-
-location_df = exposure_df[
-    [c for c in location_columns if c in exposure_df.columns]
-].drop_duplicates("vlcode")
-
-
-risk_df = risk_df.merge(
-    location_df,
-    on="vlcode",
-    how="left",
+    "EPSG:4326",
+    always_xy=True
 )
 
 
 # ============================================================
-# HELPER FUNCTIONS
+# HELPERS
 # ============================================================
 
-def safe_float(value):
+def safe_number(value):
     if pd.isna(value):
         return None
 
@@ -146,108 +82,185 @@ def safe_float(value):
         return None
 
 
-def priority_from_score(score):
-    if score is None:
-        return "P4"
+def get_coordinates(row):
+    """
+    CSV does not contain geometry.
+    Coordinates will be populated as null unless longitude/
+    latitude columns are available.
+    """
 
-    if score >= 80:
-        return "P1"
+    latitude_columns = [
+        "latitude",
+        "lat",
+        "centroid_lat"
+    ]
 
-    if score >= 60:
-        return "P2"
+    longitude_columns = [
+        "longitude",
+        "lon",
+        "lng",
+        "centroid_lon"
+    ]
 
-    if score >= 40:
-        return "P3"
+    lat = None
+    lon = None
 
-    return "P4"
+    for column in latitude_columns:
+        if column in row.index:
+            lat = safe_number(row[column])
+            if lat is not None:
+                break
 
+    for column in longitude_columns:
+        if column in row.index:
+            lon = safe_number(row[column])
+            if lon is not None:
+                break
 
-def get_hazards(row):
+    if lat is None or lon is None:
+        return {
+            "lat": None,
+            "lon": None
+        }
+
     return {
-        "coastal":safe_float(
-            row.get("coastal_hazard_score")
-        ),
-
-        "flood":safe_float(
-            row.get("flood_hazard_score")
-        ),
-
-        "cyclone":safe_float(
-            row.get("cyclone_hazard_score")
-        ),
-
-        "rainfall":safe_float(
-            row.get("rainfall_hazard_score")
-        ),
+        "lat": lat,
+        "lon": lon
     }
 
 
-def village_to_frontend(row):
-    score = safe_float(
-        row.get("multi_hazard_score")
-    )
+def calculate_profile(row):
+    """
+    Creates transparent descriptive profiles from the
+    administrative dataset.
 
-    if score is None:
-        risk_score = None
+    These are NOT official government hazard classifications.
+    """
+
+    population = safe_number(
+        row.get("total_population_village")
+    ) or 0
+
+    area = safe_number(
+        row.get("total_geographical_area")
+    ) or 0
+
+    forest = safe_number(
+        row.get("forest_area")
+    ) or 0
+
+    irrigation = safe_number(
+        row.get("area_irrigated_by_source")
+    ) or 0
+
+    distance = safe_number(
+        row.get("nearest_town_distance_from_village")
+    ) or 0
+
+    if population < 5000:
+        population_class = "LOW"
+    elif population < 15000:
+        population_class = "MODERATE"
+    elif population < 30000:
+        population_class = "HIGH"
     else:
-        risk_score = round(score * 100,2)
+        population_class = "VERY HIGH"
 
-    lat = safe_float(
-        row.get("centroid_lat")
-    )
+    if area < 1000:
+        area_class = "SMALL"
+    elif area < 3000:
+        area_class = "MEDIUM"
+    elif area < 7000:
+        area_class = "LARGE"
+    else:
+        area_class = "VERY LARGE"
 
-    lon = safe_float(
-        row.get("centroid_lon")
-    )
+    if forest == 0:
+        forest_class = "NONE"
+    elif area > 0 and forest / area < 0.25:
+        forest_class = "LOW"
+    elif area > 0 and forest / area < 0.50:
+        forest_class = "MODERATE"
+    else:
+        forest_class = "HIGH"
 
-    hazards = get_hazards(row)
+    if irrigation == 0:
+        irrigation_class = "NONE"
+    elif area > 0 and irrigation / area < 0.25:
+        irrigation_class = "LOW"
+    elif area > 0 and irrigation / area < 0.50:
+        irrigation_class = "MODERATE"
+    else:
+        irrigation_class = "HIGH"
+
+    if distance <= 10:
+        accessibility_class = "VERY HIGH"
+    elif distance <= 25:
+        accessibility_class = "HIGH"
+    elif distance <= 50:
+        accessibility_class = "MODERATE"
+    else:
+        accessibility_class = "LOW"
 
     return {
-        "id":str(row["vlcode"]),
-        "name":str(row["village"]),
-        "vlcode":str(row["vlcode"]),
+        "population": population,
+        "population_class": population_class,
+        "area": area,
+        "area_class": area_class,
+        "forest_area": forest,
+        "forest_class": forest_class,
+        "irrigation_area": irrigation,
+        "irrigation_class": irrigation_class,
+        "nearest_town_distance": distance,
+        "accessibility_class": accessibility_class
+    }
 
-        "priority":priority_from_score(
-            risk_score
-        ),
 
-        "risk_score":risk_score,
+def village_to_dict(row):
+    profile = calculate_profile(row)
 
-        "risk_category":str(
-            row["multi_hazard_category"]
-        ),
+    village_name = str(
+        row.get("village", "")
+    ).strip()
 
-        "population":None,
+    vlcode = str(
+        row.get("vlcode", "")
+    ).strip()
 
-        "centroid":{
-            "lat":lat,
-            "lon":lon,
-        },
+    district = str(
+        row.get("district", "")
+    ).strip()
 
-        "block":(
-            None
-            if pd.isna(row.get("block"))
-            else str(row.get("block"))
-        ),
+    block = str(
+        row.get("block", "")
+    ).strip()
 
-        "district":(
-            None
-            if pd.isna(row.get("district"))
-            else str(row.get("district"))
-        ),
+    coordinates = get_coordinates(row)
 
-        # Individual AI/ML hazard scores
-        "hazards":hazards,
+    # The administrative dataset does not contain an
+    # official overall hazard score.
+    #
+    # Therefore we do NOT fabricate one.
 
-        "hazards_available":[
-            name
-            for name,value in hazards.items()
-            if value is not None
-        ],
+    return {
+        "id": vlcode,
+        "name": village_name,
+        "vlcode": vlcode,
+        "district": district,
+        "block": block,
+        "priority": "PENDING",
+        "risk_score": None,
+        "risk_category": "DATA-ONLY",
+        "population": profile["population"],
+        "centroid": coordinates,
 
-        "hazard_contribution":row.get(
-            "hazard_contribution"
-        ),
+        "profiles": {
+            "population": profile["population_class"],
+            "area": profile["area_class"],
+            "forest": profile["forest_class"],
+            "irrigation": profile["irrigation_class"],
+            "accessibility": profile["accessibility_class"]
+        }
     }
 
 
@@ -258,135 +271,110 @@ def village_to_frontend(row):
 @app.get("/")
 def root():
     return {
-        "project":"AASHRAY",
-        "module":"AI/ML",
-        "location":"Kendrapara, Odisha",
-        "status":"online",
-        "villages":len(risk_df),
-        "hazards":[
-            "coastal",
-            "flood",
-            "cyclone",
-            "rainfall",
-            "multi_hazard",
-        ],
+        "project": "AASHRAY",
+        "module": "AI/ML",
+        "location": "Kerala",
+        "status": "online",
+        "villages": len(df),
+        "dataset": "700 selected Kerala villages",
+        "risk_note": (
+            "Current dataset contains administrative and "
+            "exposure attributes. Official/modelled hazard "
+            "scores are not fabricated when unavailable."
+        )
     }
 
 
 # ============================================================
-# GET ALL VILLAGES
+# ALL VILLAGES
 # ============================================================
 
 @app.get("/api/villages")
 def get_villages():
-
-    villages = []
-
-    for _,row in risk_df.iterrows():
-
-        villages.append(
-            village_to_frontend(row)
-        )
+    villages = [
+        village_to_dict(row)
+        for _, row in df.iterrows()
+    ]
 
     return {
-        "count":len(villages),
-        "villages":villages,
+        "count": len(villages),
+        "villages": villages
     }
 
 
 # ============================================================
-# GET SINGLE VILLAGE
+# SINGLE VILLAGE
 # ============================================================
 
 @app.get("/api/village/{vlcode}")
-def get_village(vlcode:str):
+def get_village(vlcode: str):
 
-    vlcode = str(vlcode).strip()
-
-    matches = risk_df[
-        risk_df["vlcode"] == vlcode
+    matches = df[
+        df["vlcode"].astype(str).str.strip() == str(vlcode).strip()
     ]
 
     if matches.empty:
         raise HTTPException(
             status_code=404,
-            detail=f"Village with vlcode {vlcode} not found",
+            detail="Village not found"
         )
 
     row = matches.iloc[0]
 
-    score = safe_float(
-        row.get("multi_hazard_score")
-    )
-
-    score_100 = (
-        round(score * 100,2)
-        if score is not None
-        else None
-    )
-
-    hazards = get_hazards(row)
+    profile = calculate_profile(row)
 
     return {
-        "id":vlcode,
+        "id": str(row["vlcode"]),
+        "name": str(row["village"]).strip(),
+        "vlcode": str(row["vlcode"]),
+        "district": str(row["district"]).strip(),
+        "block": str(row["block"]).strip(),
+        "population": profile["population"],
+        "centroid": get_coordinates(row),
 
-        "name":str(
-            row["village"]
-        ),
-
-        "vlcode":vlcode,
-
-        "block":(
-            None
-            if pd.isna(row.get("block"))
-            else str(row.get("block"))
-        ),
-
-        "district":(
-            None
-            if pd.isna(row.get("district"))
-            else str(row.get("district"))
-        ),
-
-        "population":None,
-
-        "centroid":{
-            "lat":safe_float(
-                row.get("centroid_lat")
-            ),
-            "lon":safe_float(
-                row.get("centroid_lon")
-            ),
+        "overall": {
+            "score": None,
+            "category": "DATA-ONLY",
+            "priority": "PENDING"
         },
 
-        "overall":{
-            "score":score_100,
+        "hazards": {},
 
-            "category":str(
-                row["multi_hazard_category"]
-            ),
+        "hazards_available": [],
 
-            "priority":priority_from_score(
-                score_100
-            ),
+        "hazard_contribution": "No official hazard score attached",
+
+        "profiles": {
+            "population": profile["population_class"],
+            "area": profile["area_class"],
+            "forest": profile["forest_class"],
+            "irrigation": profile["irrigation_class"],
+            "accessibility": profile["accessibility_class"]
         },
 
-        "hazards":hazards,
+        "raw_data": {
+            "total_households": safe_number(
+                row.get("total_households")
+            ),
+            "total_geographical_area": profile["area"],
+            "forest_area": profile["forest_area"],
+            "net_area_sown": safe_number(
+                row.get("net_area_sown")
+            ),
+            "total_unirrigated_land": safe_number(
+                row.get("total_unirrigated_land")
+            ),
+            "area_irrigated_by_source": profile["irrigation_area"],
+            "nearest_town_distance": profile[
+                "nearest_town_distance"
+            ]
+        },
 
-        "hazards_available":[
-            name
-            for name,value in hazards.items()
-            if value is not None
-        ],
-
-        "hazard_contribution":row.get(
-            "hazard_contribution"
-        ),
-
-        "data_note":(
-            "Population data is not available "
-            "in the current AI/ML dataset."
-        ),
+        "data_note": (
+            "Administrative village data from the selected "
+            "700-village Kerala dataset. Hazard values are "
+            "not fabricated."
+        )
     }
 
 
@@ -395,150 +383,102 @@ def get_village(vlcode:str):
 # ============================================================
 
 @app.get("/api/statistics")
-def get_statistics():
+def statistics():
 
-    scores = pd.to_numeric(
-        risk_df["multi_hazard_score"],
-        errors="coerce",
-    ).dropna()
+    population = pd.to_numeric(
+        df["total_population_village"],
+        errors="coerce"
+    ).fillna(0)
 
-    categories = (
-        risk_df["multi_hazard_category"]
-        .value_counts()
-        .to_dict()
-    )
+    area = pd.to_numeric(
+        df["total_geographical_area"],
+        errors="coerce"
+    ).fillna(0)
+
+    forest = pd.to_numeric(
+        df["forest_area"],
+        errors="coerce"
+    ).fillna(0)
 
     return {
-        "total_villages":len(risk_df),
-
-        "risk_distribution":categories,
-
-        "mean_risk_score":round(
-            float(scores.mean() * 100),
-            2,
-        ),
-
-        "min_risk_score":round(
-            float(scores.min() * 100),
-            2,
-        ),
-
-        "max_risk_score":round(
-            float(scores.max() * 100),
-            2,
-        ),
+        "total_villages": len(df),
+        "districts": int(df["district"].nunique()),
+        "blocks": int(df["block"].nunique()),
+        "population": {
+            "total": float(population.sum()),
+            "average": float(population.mean()),
+            "maximum": float(population.max())
+        },
+        "area": {
+            "total": float(area.sum()),
+            "average": float(area.mean()),
+            "maximum": float(area.max())
+        },
+        "forest": {
+            "total": float(forest.sum()),
+            "average": float(forest.mean()),
+            "maximum": float(forest.max())
+        }
     }
 
 
 # ============================================================
-# TOP RISK VILLAGES
+# TOP RISK
 # ============================================================
 
 @app.get("/api/top-risk")
-def get_top_risk():
+def top_risk():
 
-    top = risk_df.sort_values(
-        "multi_hazard_score",
-        ascending=False,
-    ).head(10)
-
-    villages = []
-
-    for _,row in top.iterrows():
-
-        villages.append(
-            village_to_frontend(row)
-        )
+    # No official hazard score is currently attached to the
+    # 700-village administrative dataset.
 
     return {
-        "count":len(villages),
-        "villages":villages,
+        "count": 0,
+        "villages": [],
+        "message": (
+            "Hazard ranking will be populated when "
+            "validated hazard layers are attached."
+        )
     }
 
 
 # ============================================================
-# MAP GEOJSON
+# MAP
 # ============================================================
 
 @app.get("/api/map")
-def get_map():
+def map_data():
 
     features = []
 
-    for _,row in risk_df.iterrows():
+    for _, row in df.iterrows():
 
-        lat = safe_float(
-            row.get("centroid_lat")
-        )
+        coordinates = get_coordinates(row)
 
-        lon = safe_float(
-            row.get("centroid_lon")
-        )
-
-        if lat is None or lon is None:
+        if (
+            coordinates["lat"] is None
+            or coordinates["lon"] is None
+        ):
             continue
 
-        score = safe_float(
-            row.get("multi_hazard_score")
-        )
-
-        hazards = get_hazards(row)
-
-        feature = {
-            "type":"Feature",
-
-            "geometry":{
-                "type":"Point",
-
-                "coordinates":[
-                    lon,
-                    lat,
-                ],
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    coordinates["lon"],
+                    coordinates["lat"]
+                ]
             },
-
-            "properties":{
-                "id":str(
-                    row["vlcode"]
-                ),
-
-                "vlcode":str(
-                    row["vlcode"]
-                ),
-
-                "name":str(
-                    row["village"]
-                ),
-
-                "risk_score":(
-                    round(score * 100,2)
-                    if score is not None
-                    else None
-                ),
-
-                "risk_category":str(
-                    row["multi_hazard_category"]
-                ),
-
-                "priority":(
-                    priority_from_score(
-                        score * 100
-                    )
-                    if score is not None
-                    else "P4"
-                ),
-
-                "hazards":hazards,
-
-                "coastal":hazards["coastal"],
-                "flood":hazards["flood"],
-                "cyclone":hazards["cyclone"],
-                "rainfall":hazards["rainfall"],
-            },
-        }
-
-        features.append(feature)
+            "properties": {
+                "id": str(row["vlcode"]),
+                "name": str(row["village"]).strip(),
+                "district": str(row["district"]).strip(),
+                "block": str(row["block"]).strip()
+            }
+        })
 
     return {
-        "type":"FeatureCollection",
-        "features":features,
+        "type": "FeatureCollection",
+        "features": features
     }
