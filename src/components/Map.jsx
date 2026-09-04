@@ -1,241 +1,588 @@
-import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React,{useEffect,useRef} from 'react';
+import {useNavigate} from 'react-router-dom';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-// OpenStreetMap Free Raster Style
-const OSM_RASTER_STYLE = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors'
+const OSM_RASTER_STYLE={
+  version:8,
+  sources:{
+    osm:{
+      type:'raster',
+      tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize:256,
+      attribution:'© OpenStreetMap contributors'
     }
   },
-  layers: [
+  layers:[
     {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm'
+      id:'osm',
+      type:'raster',
+      source:'osm'
     }
   ]
 };
 
-// Priority Color & Size Configurations
-const PRIORITY_CONFIG = {
-  P1: { color: '#dc2626', size: 30, label: 'P1' },
-  P2: { color: '#f97316', size: 26, label: 'P2' },
-  P3: { color: '#eab308', size: 22, label: 'P3' },
-  P4: { color: '#22c55e', size: 18, label: 'P4' }
+const PRIORITY_CONFIG={
+  P1:{color:'#dc2626',size:30,label:'P1'},
+  P2:{color:'#f97316',size:26,label:'P2'},
+  P3:{color:'#eab308',size:22,label:'P3'},
+  P4:{color:'#22c55e',size:18,label:'P4'}
 };
 
-export default function Map({ habitations = [], onMarkerClick, showHabitations = true }) {
-  const mapContainer = useRef(null);
-  const mapInstance = useRef(null);
-  const markersRef = useRef([]);
+const RISK_CONFIG={
+  very_high:{
+    color:'#dc2626',
+    size:28,
+    label:'VH'
+  },
+  high:{
+    color:'#f97316',
+    size:25,
+    label:'H'
+  },
+  moderate:{
+    color:'#eab308',
+    size:22,
+    label:'M'
+  },
+  low:{
+    color:'#22c55e',
+    size:19,
+    label:'L'
+  }
+};
 
-  // Use refs to prevent stale closure issues in MapLibre event handlers
-  const navigate = useNavigate();
-  const navigateRef = useRef(navigate);
-  navigateRef.current = navigate;
+function getRiskConfig(value){
 
-  const onMarkerClickRef = useRef(onMarkerClick);
-  onMarkerClickRef.current = onMarkerClick;
+  if(value==null){
+    return RISK_CONFIG.low;
+  }
 
-  // Initialize MapLibre instance once
-  useEffect(() => {
-    if (!mapContainer.current) return;
+  const score=Number(value);
 
-    const map = new maplibregl.Map({
-      container: mapContainer.current,
-      style: OSM_RASTER_STYLE,
-      center: [76.13, 11.68], // [lon, lat]
-      zoom: 11,
-      attributionControl: true
+  if(score>=0.75){
+    return RISK_CONFIG.very_high;
+  }
+
+  if(score>=0.50){
+    return RISK_CONFIG.high;
+  }
+
+  if(score>=0.25){
+    return RISK_CONFIG.moderate;
+  }
+
+  return RISK_CONFIG.low;
+}
+
+function getActiveLayer({
+  showFlood,
+  showCyclone,
+  showRainfall,
+  showRisk
+}){
+
+  if(showRisk) return 'risk';
+  if(showFlood) return 'flood';
+  if(showCyclone) return 'cyclone';
+  if(showRainfall) return 'rainfall';
+
+  return 'habitations';
+}
+
+export default function Map({
+  habitations=[],
+  onMarkerClick,
+  showHabitations=true,
+  showFlood=false,
+  showCyclone=false,
+  showRainfall=false,
+  showRisk=false,
+  showLandslide=false
+}){
+
+  const mapContainer=useRef(null);
+  const mapInstance=useRef(null);
+  const markersRef=useRef([]);
+
+  const navigate=useNavigate();
+
+  const navigateRef=useRef(navigate);
+  navigateRef.current=navigate;
+
+  const onMarkerClickRef=useRef(onMarkerClick);
+  onMarkerClickRef.current=onMarkerClick;
+
+  useEffect(()=>{
+
+    if(!mapContainer.current) return;
+
+    const map=new maplibregl.Map({
+      container:mapContainer.current,
+      style:OSM_RASTER_STYLE,
+
+      center:[86.55,20.45],
+
+      zoom:9,
+
+      attributionControl:true
     });
 
-    // Add zoom and rotation controls to top-left
-    map.addControl(new maplibregl.NavigationControl(), 'top-left');
+    map.addControl(
+      new maplibregl.NavigationControl(),
+      'top-left'
+    );
 
-    mapInstance.current = map;
+    mapInstance.current=map;
 
-    return () => {
-      map.remove();
-      mapInstance.current = null;
-    };
-  }, []);
+    map.on('load',()=>{
 
-  // Update Markers when habitations or showHabitations layer toggle changes
-  useEffect(() => {
-    if (!mapInstance.current) return;
+      if(habitations.length===0) return;
 
-    // Remove existing markers
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
+      const bounds=new maplibregl.LngLatBounds();
 
-    if (!showHabitations || !habitations.length) return;
+      habitations.forEach(h=>{
 
-    const map = mapInstance.current;
+        if(
+          h.centroid &&
+          typeof h.centroid.lat==='number' &&
+          typeof h.centroid.lon==='number'
+        ){
 
-    habitations.forEach((h) => {
-      if (!h.centroid || typeof h.centroid.lat !== 'number' || typeof h.centroid.lon !== 'number') {
-        return;
+          bounds.extend([
+            h.centroid.lon,
+            h.centroid.lat
+          ]);
+
+        }
+
+      });
+
+      if(!bounds.isEmpty()){
+
+        map.fitBounds(
+          bounds,
+          {
+            padding:60,
+            maxZoom:11,
+            duration:800
+          }
+        );
+
       }
 
-      const config = PRIORITY_CONFIG[h.priority] || PRIORITY_CONFIG.P4;
+    });
 
-      // 1. Outer Container (Hit Target Box)
-      // Provides a generous 44x44px clickable area without interfering with MapLibre's position transforms
-      const markerContainer = document.createElement('div');
-      markerContainer.className = 'maplibre-marker-hitbox';
-      markerContainer.style.width = '44px';
-      markerContainer.style.height = '44px';
-      markerContainer.style.display = 'flex';
-      markerContainer.style.alignItems = 'center';
-      markerContainer.style.justifyContent = 'center';
-      markerContainer.style.cursor = 'pointer';
-      markerContainer.style.pointerEvents = 'auto';
-      markerContainer.style.background = 'transparent';
-      markerContainer.style.userSelect = 'none';
+    return()=>{
 
-      // 2. Inner Visual Circle Element (Scales smoothly on hover without shifting coordinate transforms)
-      const innerCircle = document.createElement('div');
-      innerCircle.className = 'maplibre-marker-circle';
-      innerCircle.style.width = `${config.size}px`;
-      innerCircle.style.height = `${config.size}px`;
-      innerCircle.style.backgroundColor = config.color;
-      innerCircle.style.border = '2.5px solid #ffffff';
-      innerCircle.style.borderRadius = '50%';
-      innerCircle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.35)';
-      innerCircle.style.display = 'flex';
-      innerCircle.style.alignItems = 'center';
-      innerCircle.style.justifyContent = 'center';
-      innerCircle.style.color = '#ffffff';
-      innerCircle.style.fontSize = config.size >= 26 ? '10px' : '9px';
-      innerCircle.style.fontWeight = 'bold';
-      innerCircle.style.transformOrigin = 'center center';
-      innerCircle.style.transition = 'transform 0.15s ease, box-shadow 0.15s ease';
-      innerCircle.style.pointerEvents = 'none'; // Click goes to markerContainer
-      innerCircle.innerText = config.label;
+      map.remove();
 
-      markerContainer.appendChild(innerCircle);
+      mapInstance.current=null;
 
-      // Safe hover animation applied strictly to the inner circle
-      markerContainer.addEventListener('mouseenter', () => {
-        innerCircle.style.transform = 'scale(1.22)';
-        innerCircle.style.boxShadow = '0 4px 14px rgba(0,0,0,0.45)';
-      });
-      markerContainer.addEventListener('mouseleave', () => {
-        innerCircle.style.transform = 'scale(1)';
-        innerCircle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.35)';
-      });
+    };
 
-      // 3. Build Popup HTML
-      const popupHtml = `
-        <div style="font-family: Inter, sans-serif; padding: 4px; min-width: 220px;">
-          <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px;">
-            <span style="font-size: 10px; font-weight: 700; color: #2563eb; font-family: monospace;">${h.id}</span>
-            <h4 style="margin: 2px 0 0 0; font-size: 14px; font-weight: 700; color: #0f172a;">${h.name}</h4>
+  },[]);
+
+  useEffect(()=>{
+
+    if(!mapInstance.current) return;
+
+    const map=mapInstance.current;
+
+    markersRef.current.forEach(
+      marker=>marker.remove()
+    );
+
+    markersRef.current=[];
+
+    if(!habititionsValid(habitations)){
+      return;
+    }
+
+    const activeLayer=getActiveLayer({
+      showFlood,
+      showCyclone,
+      showRainfall,
+      showRisk
+    });
+
+    if(
+      activeLayer==='habitations' &&
+      !showHabitations
+    ){
+      return;
+    }
+
+    if(showLandslide){
+
+      console.warn(
+        'Landslide layer requires Wayanad/Kerala spatial data and is not drawn over Kendrapara.'
+      );
+
+    }
+
+    habitations.forEach(h=>{
+
+      if(
+        !h.centroid ||
+        typeof h.centroid.lat!=='number' ||
+        typeof h.centroid.lon!=='number'
+      ){
+
+        return;
+
+      }
+
+      let config;
+
+      let layerLabel='Habitations';
+
+      if(activeLayer==='habitations'){
+
+        config=
+          PRIORITY_CONFIG[h.priority] ||
+          PRIORITY_CONFIG.P4;
+
+        layerLabel='Village Priority';
+
+      }else{
+
+        const hazardValue=
+          h.hazards?.[activeLayer];
+
+        config=getRiskConfig(hazardValue);
+
+        if(activeLayer==='risk'){
+          layerLabel='Multi-Hazard Risk';
+        }
+
+        if(activeLayer==='flood'){
+          layerLabel='Flood Risk';
+        }
+
+        if(activeLayer==='cyclone'){
+          layerLabel='Cyclone Risk';
+        }
+
+        if(activeLayer==='rainfall'){
+          layerLabel='Rainfall Risk';
+        }
+
+      }
+
+      const markerContainer=
+        document.createElement('div');
+
+      markerContainer.className=
+        'maplibre-marker-hitbox';
+
+      markerContainer.style.width='44px';
+      markerContainer.style.height='44px';
+      markerContainer.style.display='flex';
+      markerContainer.style.alignItems='center';
+      markerContainer.style.justifyContent='center';
+      markerContainer.style.cursor='pointer';
+      markerContainer.style.pointerEvents='auto';
+      markerContainer.style.background='transparent';
+      markerContainer.style.userSelect='none';
+
+      const innerCircle=
+        document.createElement('div');
+
+      innerCircle.className=
+        'maplibre-marker-circle';
+
+      innerCircle.style.width=
+        `${config.size}px`;
+
+      innerCircle.style.height=
+        `${config.size}px`;
+
+      innerCircle.style.backgroundColor=
+        config.color;
+
+      innerCircle.style.border=
+        '2.5px solid #ffffff';
+
+      innerCircle.style.borderRadius='50%';
+
+      innerCircle.style.boxShadow=
+        '0 2px 8px rgba(0,0,0,0.35)';
+
+      innerCircle.style.display='flex';
+      innerCircle.style.alignItems='center';
+      innerCircle.style.justifyContent='center';
+
+      innerCircle.style.color='#ffffff';
+
+      innerCircle.style.fontSize=
+        config.size>=26?'9px':'8px';
+
+      innerCircle.style.fontWeight='bold';
+
+      innerCircle.style.transformOrigin=
+        'center center';
+
+      innerCircle.style.transition=
+        'transform 0.15s ease, box-shadow 0.15s ease';
+
+      innerCircle.style.pointerEvents='none';
+
+      innerCircle.innerText=config.label;
+
+      markerContainer.appendChild(
+        innerCircle
+      );
+
+      markerContainer.addEventListener(
+        'mouseenter',
+        ()=>{
+          innerCircle.style.transform=
+            'scale(1.22)';
+
+          innerCircle.style.boxShadow=
+            '0 4px 14px rgba(0,0,0,0.45)';
+        }
+      );
+
+      markerContainer.addEventListener(
+        'mouseleave',
+        ()=>{
+          innerCircle.style.transform=
+            'scale(1)';
+
+          innerCircle.style.boxShadow=
+            '0 2px 8px rgba(0,0,0,0.35)';
+        }
+      );
+
+      const hazards=h.hazards||{};
+
+      const hazardRows=`
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:4px;">
+            AI/ML Hazard Scores
           </div>
-          <div style="font-size: 12px; line-height: 1.6; color: #475569; margin-bottom: 10px;">
-            <div style="display: flex; justify-content: space-between;">
+
+          <div style="display:flex;justify-content:space-between;">
+            <span>Coastal</span>
+            <strong>${formatHazard(hazards.coastal)}</strong>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;">
+            <span>Flood</span>
+            <strong>${formatHazard(hazards.flood)}</strong>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;">
+            <span>Cyclone</span>
+            <strong>${formatHazard(hazards.cyclone)}</strong>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;">
+            <span>Rainfall</span>
+            <strong>${formatHazard(hazards.rainfall)}</strong>
+          </div>
+        </div>
+      `;
+
+      const popupHtml=`
+
+        <div style="font-family:Inter,sans-serif;padding:4px;min-width:240px;">
+
+          <div style="border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:8px;">
+
+            <span style="font-size:10px;font-weight:700;color:#2563eb;font-family:monospace;">
+              ${h.id}
+            </span>
+
+            <h4 style="margin:2px 0 0 0;font-size:14px;font-weight:700;color:#0f172a;">
+              ${h.name}
+            </h4>
+
+          </div>
+
+          <div style="font-size:12px;line-height:1.6;color:#475569;margin-bottom:10px;">
+
+            <div style="display:flex;justify-content:space-between;">
+              <span>Layer:</span>
+              <strong style="color:${config.color};">
+                ${layerLabel}
+              </strong>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;">
               <span>Priority:</span>
-              <strong style="color: ${config.color};">${h.priority}</strong>
+              <strong style="color:${config.color};">
+                ${h.priority}
+              </strong>
             </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span>Risk Score:</span>
-              <strong style="color: #dc2626;">${h.risk_score} / 100</strong>
+
+            <div style="display:flex;justify-content:space-between;">
+              <span>Overall Risk:</span>
+              <strong style="color:#dc2626;">
+                ${h.risk_score ?? 'N/A'} / 100
+              </strong>
             </div>
-            <div style="display: flex; justify-content: space-between;">
+
+            <div style="display:flex;justify-content:space-between;">
               <span>Population:</span>
-              <strong>${h.population?.toLocaleString() || 'N/A'}</strong>
+              <strong>
+                ${h.population?.toLocaleString()||'N/A'}
+              </strong>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-top: 2px;">
+
+            ${hazardRows}
+
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:8px;">
               <span>Centroid:</span>
-              <span style="font-family: monospace;">${h.centroid.lat.toFixed(3)}, ${h.centroid.lon.toFixed(3)}</span>
+
+              <span style="font-family:monospace;">
+                ${h.centroid.lat.toFixed(3)},
+                ${h.centroid.lon.toFixed(3)}
+              </span>
+
             </div>
+
           </div>
-          <button 
+
+          <button
             type="button"
             class="maplibre-view-details-btn"
             style="
-              width: 100%;
-              display: block; 
-              text-align: center; 
-              background-color: #2563eb; 
-              color: #ffffff; 
-              border: none;
-              font-size: 12px; 
-              font-weight: 600; 
-              padding: 7px 12px; 
-              border-radius: 6px; 
-              cursor: pointer;
-              transition: background-color 0.15s ease;
+              width:100%;
+              display:block;
+              text-align:center;
+              background-color:#2563eb;
+              color:#ffffff;
+              border:none;
+              font-size:12px;
+              font-weight:600;
+              padding:7px 12px;
+              border-radius:6px;
+              cursor:pointer;
             "
           >
             View Details →
           </button>
+
         </div>
       `;
 
-      const popup = new maplibregl.Popup({
-        offset: 14,
-        closeButton: true,
-        closeOnClick: false,
-        maxWidth: '300px'
-      }).setHTML(popupHtml);
+      const popup=
+        new maplibregl.Popup({
+          offset:14,
+          closeButton:true,
+          closeOnClick:false,
+          maxWidth:'320px'
+        })
+        .setHTML(popupHtml);
 
-      // Attach button click handler upon popup DOM render
-      popup.on('open', () => {
-        const popupEl = popup.getElement();
-        if (!popupEl) return;
+      popup.on('open',()=>{
 
-        const detailsBtn = popupEl.querySelector('.maplibre-view-details-btn');
-        if (detailsBtn) {
-          detailsBtn.onclick = (e) => {
+        const popupEl=
+          popup.getElement();
+
+        if(!popupEl) return;
+
+        const detailsBtn=
+          popupEl.querySelector(
+            '.maplibre-view-details-btn'
+          );
+
+        if(detailsBtn){
+
+          detailsBtn.onclick=(e)=>{
+
             e.preventDefault();
             e.stopPropagation();
-            if (navigateRef.current) {
-              navigateRef.current(`/habitation/${h.id}`);
+
+            if(navigateRef.current){
+
+              navigateRef.current(
+                `/habitation/${h.id}`
+              );
+
             }
+
           };
 
-          detailsBtn.onmouseenter = () => {
-            detailsBtn.style.backgroundColor = '#1d4ed8';
-          };
-          detailsBtn.onmouseleave = () => {
-            detailsBtn.style.backgroundColor = '#2563eb';
-          };
         }
+
       });
 
-      // 4. Create and add Marker with center anchor
-      const marker = new maplibregl.Marker({ 
-        element: markerContainer,
-        anchor: 'center'
-      })
-        .setLngLat([h.centroid.lon, h.centroid.lat])
+      const marker=
+        new maplibregl.Marker({
+          element:markerContainer,
+          anchor:'center'
+        })
+        .setLngLat([
+          h.centroid.lon,
+          h.centroid.lat
+        ])
         .setPopup(popup)
         .addTo(map);
 
-      // 5. Handle Click on Marker
-      markerContainer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        marker.togglePopup();
-        if (onMarkerClickRef.current) {
-          onMarkerClickRef.current(h);
+      markerContainer.addEventListener(
+        'click',
+        e=>{
+
+          e.stopPropagation();
+
+          marker.togglePopup();
+
+          if(onMarkerClickRef.current){
+
+            onMarkerClickRef.current(h);
+
+          }
+
         }
-      });
+      );
 
       markersRef.current.push(marker);
-    });
-  }, [habitations, showHabitations]);
 
-  return (
+    });
+
+  },[
+    habitations,
+    showHabitations,
+    showFlood,
+    showCyclone,
+    showRainfall,
+    showRisk,
+    showLandslide
+  ]);
+
+  return(
+
     <div className="relative w-full h-full min-h-[500px] rounded-xl overflow-hidden shadow-inner border border-slate-300">
-      <div ref={mapContainer} className="w-full h-full min-h-[500px]" />
+
+      <div
+        ref={mapContainer}
+        className="w-full h-full min-h-[500px]"
+      />
+
     </div>
+
   );
+}
+
+function habititionsValid(habitations){
+
+  return(
+    Array.isArray(habitations) &&
+    habitations.length>0
+  );
+
+}
+
+function formatHazard(value){
+
+  if(value==null){
+    return 'N/A';
+  }
+
+  return `${(Number(value)*100).toFixed(1)}`;
+
 }
