@@ -10,7 +10,7 @@ import recNoSafeSite from '../mocks/recommendation_no_safe_site.json';
 // AASHRAY AI/ML API
 // ============================================================
 
-const AI_API_URL = 'http://127.0.0.1:8000';
+const AI_API_URL = 'https://aashray-sih26191.onrender.com';
 
 const delay = (ms = 300) =>
   new Promise((resolve) => setTimeout(resolve, ms));
