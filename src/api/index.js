@@ -6,51 +6,308 @@ import recRecommended from '../mocks/recommendation_recommended.json';
 import recMultiSite from '../mocks/recommendation_multisite.json';
 import recNoSafeSite from '../mocks/recommendation_no_safe_site.json';
 
-// ============================================================
-// AASHRAY AI/ML API
-// ============================================================
-
 const AI_API_URL = 'https://aashray-sih26191.onrender.com';
 
 const delay = (ms = 300) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-// ============================================================
-// DEMO DECISION STORAGE
-// ============================================================
-
 const decisionsStore = [...initialDecisions];
 
 // ============================================================
-// FETCH REAL AASHRAY VILLAGES
+// REAL API DATA NORMALIZATION
+// ============================================================
+
+function getRiskScore(village) {
+  const score =
+    village?.overall?.score ??
+    village?.risk_score ??
+    village?.aashray_risk_score ??
+    (
+      village?.multi_hazard_score != null
+        ? Number(village.multi_hazard_score) * 100
+        : null
+    );
+
+  if (score == null) {
+    return null;
+  }
+
+  const numericScore = Number(score);
+
+  return Number.isFinite(numericScore)
+    ? numericScore
+    : null;
+}
+
+function getPriority(village, riskScore) {
+  if (village?.priority) {
+    return village.priority;
+  }
+
+  if (riskScore == null) {
+    return 'P4';
+  }
+
+  if (riskScore >= 75) return 'P1';
+  if (riskScore >= 50) return 'P2';
+  if (riskScore >= 25) return 'P3';
+
+  return 'P4';
+}
+
+function getRiskCategory(village, riskScore) {
+  const category =
+    village?.overall?.category ??
+    village?.risk_category ??
+    village?.multi_hazard_category;
+
+  if (category) {
+    return category;
+  }
+
+  if (riskScore == null) {
+    return 'NO DATA';
+  }
+
+  if (riskScore >= 75) return 'VERY HIGH';
+  if (riskScore >= 50) return 'HIGH';
+  if (riskScore >= 25) return 'MODERATE';
+
+  return 'LOW';
+}
+
+function getCentroid(village) {
+  const lat = Number(
+    village?.centroid?.lat ??
+    village?.centroid?.latitude ??
+    village?.latitude
+  );
+
+  const lon = Number(
+    village?.centroid?.lon ??
+    village?.centroid?.lng ??
+    village?.centroid?.longitude ??
+    village?.longitude
+  );
+
+  if (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon)
+  ) {
+    return {
+      lat,
+      lon,
+      lng: lon
+    };
+  }
+
+  return null;
+}
+
+function getHazardValue(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  return Number.isFinite(numericValue)
+    ? numericValue
+    : null;
+}
+
+function getHazards(village) {
+  const hazards = village?.hazards || {};
+
+  return {
+    coastal: getHazardValue(
+      hazards.coastal ??
+      village?.coastal_hazard_score
+    ),
+
+    flood: getHazardValue(
+      hazards.flood ??
+      village?.flood_hazard_score
+    ),
+
+    cyclone: getHazardValue(
+      hazards.cyclone ??
+      village?.cyclone_hazard_score
+    ),
+
+    rainfall: getHazardValue(
+      hazards.rainfall ??
+      village?.rainfall_hazard_score
+    )
+  };
+}
+
+function getHazardsAvailable(village) {
+  if (Array.isArray(village?.hazards_available)) {
+    return village.hazards_available;
+  }
+
+  if (
+    typeof village?.hazards_available ===
+    'string'
+  ) {
+    return village.hazards_available
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeVillage(village) {
+  const riskScore =
+    getRiskScore(village);
+
+  return {
+    id:
+      village?.id ??
+      village?.vlcode ??
+      village?.village,
+
+    name:
+      village?.name ??
+      village?.village ??
+      'Unknown Village',
+
+    vlcode:
+      village?.vlcode ??
+      null,
+
+    state:
+      village?.state ??
+      null,
+
+    district:
+      village?.district ??
+      null,
+
+    block:
+      village?.block ??
+      null,
+
+    priority:
+      getPriority(
+        village,
+        riskScore
+      ),
+
+    risk_score:
+      riskScore,
+
+    risk_category:
+      getRiskCategory(
+        village,
+        riskScore
+      ),
+
+    population:
+      village?.population ??
+      village?.total_population_village ??
+      0,
+
+    households:
+      village?.total_households ??
+      0,
+
+    area:
+      village?.total_geographical_area ??
+      0,
+
+    centroid:
+      getCentroid(village),
+
+    hazards:
+      getHazards(village),
+
+    hazards_available:
+      getHazardsAvailable(village),
+
+    hazard_contribution:
+      village?.hazard_contribution ??
+      '',
+
+    forest_area:
+      village?.forest_area ??
+      null,
+
+    net_area_sown:
+      village?.net_area_sown ??
+      null,
+
+    nearest_town_distance:
+      village?.nearest_town_distance_from_village ??
+      null,
+
+    risk_model:
+      village?.risk_model ??
+      null,
+
+    risk_model_note:
+      village?.risk_model_note ??
+      null,
+
+    raw_data:
+      village
+  };
+}
+
+// ============================================================
+// FETCH REAL VILLAGES
 // ============================================================
 
 export async function getHabitations() {
   try {
-    const response = await fetch(`${AI_API_URL}/api/villages`);
+    const response = await fetch(
+      `${AI_API_URL}/api/villages`
+    );
 
     if (!response.ok) {
-      throw new Error('Failed to fetch villages from AASHRAY AI API');
+      throw new Error(
+        'Failed to fetch AASHRAY villages'
+      );
     }
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
-    return data.villages || [];
+    const villages =
+      Array.isArray(data?.villages)
+        ? data.villages
+        : [];
+
+    return villages.map(
+      normalizeVillage
+    );
   } catch (error) {
-    console.error('AASHRAY AI API error:', error);
+    console.error(
+      'AASHRAY API error:',
+      error
+    );
 
-    // Keep existing demo working if API is unavailable
     await delay(300);
+
     return habitationsData;
   }
 }
 
 // ============================================================
-// FETCH REAL VILLAGE DETAILS
+// FETCH VILLAGE DETAIL
 // ============================================================
 
 export async function getHabitationDetail(id) {
-  if (!id) return null;
+  if (!id) {
+    return null;
+  }
 
   try {
     const response = await fetch(
@@ -58,86 +315,134 @@ export async function getHabitationDetail(id) {
     );
 
     if (!response.ok) {
-      throw new Error('Village not found in AASHRAY AI API');
+      throw new Error(
+        'Village not found'
+      );
     }
 
-    const data = await response.json();
+    const data =
+      await response.json();
+
+    const village =
+      data?.data ??
+      data?.village ??
+      data;
+
+    const normalized =
+      normalizeVillage(village);
 
     return {
-      id: data.id,
-      name: data.name,
-      vlcode: data.vlcode,
+      ...normalized,
 
-      block: data.block,
-      district: data.district,
+      id:
+        data?.id ??
+        normalized.id,
 
-      priority: data.overall?.priority || 'P4',
+      name:
+        data?.name ??
+        normalized.name,
 
-      risk_score: data.overall?.score ?? null,
-      risk_category: data.overall?.category || 'NO DATA',
+      vlcode:
+        data?.vlcode ??
+        normalized.vlcode,
 
-      population: data.population,
+      priority:
+        data?.overall?.priority ??
+        normalized.priority,
 
-      centroid: data.centroid,
+      risk_score:
+        data?.overall?.score ??
+        normalized.risk_score,
 
-      hazards: {
-        coastal: data.hazards?.coastal ?? null,
-        flood: data.hazards?.flood ?? null,
-        cyclone: data.hazards?.cyclone ?? null,
-        rainfall: data.hazards?.rainfall ?? null,
-      },
+      risk_category:
+        data?.overall?.category ??
+        normalized.risk_category,
 
-      hazards_available: data.hazards_available || [],
+      population:
+        data?.population ??
+        normalized.population,
 
-      hazard_contribution: data.hazard_contribution || '',
+      centroid:
+        data?.centroid ??
+        normalized.centroid,
 
-      data_note: data.data_note || '',
+      hazards:
+        data?.hazards ??
+        normalized.hazards,
+
+      hazards_available:
+        data?.hazards_available ??
+        normalized.hazards_available,
+
+      hazard_contribution:
+        data?.hazard_contribution ??
+        normalized.hazard_contribution,
+
+      data_note:
+        data?.data_note ??
+        normalized.risk_model_note ??
+        '',
+
+      raw_data:
+        data
     };
   } catch (error) {
-    console.error('AASHRAY village API error:', error);
+    console.error(
+      'Village detail API error:',
+      error
+    );
 
-    // Fallback to existing mock data
     await delay(300);
 
-    return habitationDetailsData[id] || null;
+    return (
+      habitationDetailsData[id] ||
+      null
+    );
   }
 }
 
 // ============================================================
 // RELOCATION SITES
 // ============================================================
-// Still using existing demo data.
-// Real relocation optimization can be connected later.
 
 export async function getSites(id) {
   await delay(300);
 
-  if (!id || !habitationDetailsData[id]) {
+  if (!id) {
     return [];
   }
 
-  return sitesByHabitationData[id] || [];
+  return (
+    sitesByHabitationData[id] ||
+    []
+  );
 }
 
 // ============================================================
-// RELOCATION RECOMMENDATION
+// RECOMMENDATION
 // ============================================================
-// Still using existing demo logic.
-// We will connect this to the backend later.
 
-export async function getRecommendation(id, state = null) {
+export async function getRecommendation(
+  id,
+  state = null
+) {
   await delay(300);
 
-  if (!id || !habitationDetailsData[id]) {
+  if (!id) {
     return null;
   }
 
-  // Manual demo states
-  if (state === 'multi_site' || state === 'multisite') {
+  if (
+    state === 'multi_site' ||
+    state === 'multisite'
+  ) {
     return recMultiSite;
   }
 
-  if (state === 'no_safe_site' || state === 'nosafe') {
+  if (
+    state === 'no_safe_site' ||
+    state === 'nosafe'
+  ) {
     return recNoSafeSite;
   }
 
@@ -145,14 +450,17 @@ export async function getRecommendation(id, state = null) {
     return getCustomizedRecommended(id);
   }
 
-  // Existing demo behavior
-  const detail = habitationDetailsData[id];
+  const detail =
+    habitationDetailsData[id];
 
   if (id === 'KL-WYD-000123') {
     return recNoSafeSite;
   }
 
-  if (id === 'KL-WYD-000124' || detail?.priority === 'P1') {
+  if (
+    id === 'KL-WYD-000124' ||
+    detail?.priority === 'P1'
+  ) {
     return recMultiSite;
   }
 
@@ -162,182 +470,356 @@ export async function getRecommendation(id, state = null) {
 function getCustomizedRecommended(id) {
   const sites =
     sitesByHabitationData[id] ||
-    sitesByHabitationData['KL-WYD-000123'];
-
-  const primarySite =
-    sites?.[0] || recRecommended.site;
-
-  const altSites =
-    sites?.slice(1) || recRecommended.alternatives;
+    sitesByHabitationData[
+      'KL-WYD-000123'
+    ];
 
   return {
     status: 'recommended',
-    site: primarySite,
-    alternatives: altSites,
+
+    site:
+      sites?.[0] ||
+      recRecommended.site,
+
+    alternatives:
+      sites?.slice(1) ||
+      recRecommended.alternatives
   };
 }
 
 // ============================================================
-// WHAT-IF
+// WHAT-IF SCENARIO ENGINE
 // ============================================================
-// Existing demo simulation.
-// Real AI scenario simulation can be connected later.
+//
+// Uses the REAL AASHRAY village risk score and population.
+// Scenario adjustments are transparent stress-test assumptions,
+// not official forecasts.
+// ============================================================
 
 export async function runWhatIf(
   habitationId,
   overrides = {}
 ) {
-  await delay(300);
+  try {
+    // ----------------------------------------------------------
+    // Load REAL village data from Render API
+    // ----------------------------------------------------------
+    const baseDetail =
+      await getHabitationDetail(habitationId);
 
-  const baseDetail =
-    habitationDetailsData[habitationId];
+    if (!baseDetail) {
+      return null;
+    }
 
-  if (!baseDetail) return null;
-
-  const baseRisk =
-    baseDetail?.risk_score ?? 70;
-
-  const basePopulation =
-    baseDetail?.population ?? 3200;
-
-  const basePriority =
-    baseDetail?.priority ?? 'P2';
-
-  const baseRecommendation =
-    baseRisk >= 90
-      ? 'no_safe_site'
-      : baseRisk >= 80
-        ? 'multi_site'
-        : 'recommended';
-
-  let delta = 0;
-
-  // Rainfall
-  if (overrides.rainfall_level === 'extreme') {
-    delta += 15;
-  } else if (
-    overrides.rainfall_level === 'moderate'
-  ) {
-    delta += 5;
-  }
-
-  // Population
-  const targetPopulation =
-    overrides.population ?? basePopulation;
-
-  if (targetPopulation > basePopulation) {
-    const extraPop =
-      targetPopulation - basePopulation;
-
-    delta += Math.min(
-      20,
-      Math.round(extraPop / 200)
-    );
-  }
-
-  // Water capacity
-  if (
-    overrides.water_capacity &&
-    overrides.water_capacity < targetPopulation
-  ) {
-    delta += 6;
-  }
-
-  // Relocation radius
-  if (
-    overrides.relocation_radius_km &&
-    overrides.relocation_radius_km < 10
-  ) {
-    delta += 4;
-  }
-
-  const simulatedRisk =
-    Math.min(
-      100,
-      Math.max(0, baseRisk + delta)
+    const baseRisk = Math.max(
+      0,
+      Math.min(
+        100,
+        Number(baseDetail.risk_score) || 0
+      )
     );
 
-  let simulatedPriority = 'P4';
+    const basePopulation = Math.max(
+      0,
+      Number(baseDetail.population) || 0
+    );
 
-  if (simulatedRisk >= 80) {
-    simulatedPriority = 'P1';
-  } else if (simulatedRisk >= 60) {
-    simulatedPriority = 'P2';
-  } else if (simulatedRisk >= 40) {
-    simulatedPriority = 'P3';
-  }
+    const basePriority =
+      baseDetail.priority ||
+      getPriority(
+        baseDetail,
+        baseRisk
+      );
 
-  let simulatedRecommendation =
-    'recommended';
+    // ----------------------------------------------------------
+    // Scenario parameters
+    // ----------------------------------------------------------
 
-  if (
-    simulatedRisk >= 95 ||
-    targetPopulation >= 5800
-  ) {
-    simulatedRecommendation =
-      'no_safe_site';
-  } else if (
-    simulatedRisk >= 80 ||
-    targetPopulation >= 3500
-  ) {
-    simulatedRecommendation =
-      'multi_site';
-  }
+    const rainfallLevel =
+      overrides.rainfall_level ||
+      'moderate';
 
-  return {
-    before: {
-      risk_score: baseRisk,
-      priority: basePriority,
-      population: basePopulation,
-      recommendation_status:
-        baseRecommendation,
-    },
+    const targetPopulation =
+      Math.max(
+        0,
+        Number(
+          overrides.population ??
+          basePopulation
+        )
+      );
 
-    after: {
-      risk_score: simulatedRisk,
-      priority: simulatedPriority,
-      population: targetPopulation,
-      recommendation_status:
-        simulatedRecommendation,
+    const waterCapacity =
+      overrides.water_capacity !== null &&
+      overrides.water_capacity !== undefined &&
+      overrides.water_capacity !== ''
+        ? Math.max(
+            0,
+            Number(
+              overrides.water_capacity
+            )
+          )
+        : null;
 
-      delta:
-        simulatedRisk - baseRisk,
+    const relocationRadius =
+      Math.max(
+        5,
+        Number(
+          overrides.relocation_radius_km ??
+          20
+        )
+      );
 
-      overrides: {
-        rainfall_level:
-          overrides.rainfall_level ||
-          'moderate',
+    // ----------------------------------------------------------
+    // Calculate scenario stress
+    // ----------------------------------------------------------
+
+    let riskMultiplier = 1;
+
+    // Rainfall stress
+    if (rainfallLevel === 'moderate') {
+      riskMultiplier += 0.05;
+    } else if (rainfallLevel === 'extreme') {
+      riskMultiplier += 0.15;
+    }
+
+    // Population stress
+    if (basePopulation > 0) {
+      const populationIncrease =
+        Math.max(
+          0,
+          (
+            targetPopulation -
+            basePopulation
+          ) /
+            basePopulation
+        );
+
+      riskMultiplier += Math.min(
+        0.20,
+        populationIncrease * 0.20
+      );
+    }
+
+    // Water-capacity stress
+    let waterStress = 0;
+
+    if (
+      waterCapacity !== null &&
+      targetPopulation >
+        waterCapacity
+    ) {
+      waterStress =
+        Math.min(
+          0.10,
+          (
+            (
+              targetPopulation -
+              waterCapacity
+            ) /
+              Math.max(
+                targetPopulation,
+                1
+              )
+          ) *
+            0.10
+        );
+
+      riskMultiplier += waterStress;
+    }
+
+    // Relocation-radius stress
+    if (relocationRadius < 10) {
+      riskMultiplier += 0.04;
+    } else if (relocationRadius < 20) {
+      riskMultiplier += 0.02;
+    }
+
+    // ----------------------------------------------------------
+    // Calculate simulated risk
+    // ----------------------------------------------------------
+
+    const simulatedRisk =
+      Math.round(
+        Math.max(
+          0,
+          Math.min(
+            100,
+            baseRisk *
+              riskMultiplier
+          )
+        )
+      );
+
+    const delta =
+      simulatedRisk -
+      Math.round(baseRisk);
+
+    // ----------------------------------------------------------
+    // Calculate simulated priority
+    // ----------------------------------------------------------
+
+    let simulatedPriority = 'P4';
+
+    if (simulatedRisk >= 75) {
+      simulatedPriority = 'P1';
+    } else if (simulatedRisk >= 50) {
+      simulatedPriority = 'P2';
+    } else if (simulatedRisk >= 25) {
+      simulatedPriority = 'P3';
+    }
+
+    // ----------------------------------------------------------
+    // Calculate relocation recommendation
+    // ----------------------------------------------------------
+
+    let simulatedRecommendation =
+      'recommended';
+
+    if (
+      simulatedRisk >= 80 ||
+      (
+        waterCapacity !== null &&
+        targetPopulation >
+          waterCapacity * 1.5
+      )
+    ) {
+      simulatedRecommendation =
+        'no_safe_site';
+    } else if (
+      simulatedRisk >= 60 ||
+      relocationRadius < 10 ||
+      (
+        waterCapacity !== null &&
+        targetPopulation >
+          waterCapacity
+      )
+    ) {
+      simulatedRecommendation =
+        'multi_site';
+    }
+
+    // ----------------------------------------------------------
+    // Baseline recommendation
+    // ----------------------------------------------------------
+
+    let baseRecommendation =
+      'recommended';
+
+    if (baseRisk >= 80) {
+      baseRecommendation =
+        'no_safe_site';
+    } else if (baseRisk >= 60) {
+      baseRecommendation =
+        'multi_site';
+    }
+
+    // ----------------------------------------------------------
+    // Return exact structure expected by WhatIf.jsx
+    // ----------------------------------------------------------
+
+    return {
+      before: {
+        risk_score:
+          Math.round(baseRisk),
+
+        priority:
+          basePriority,
+
+        population:
+          basePopulation,
+
+        recommendation_status:
+          baseRecommendation
+      },
+
+      after: {
+        risk_score:
+          simulatedRisk,
+
+        priority:
+          simulatedPriority,
 
         population:
           targetPopulation,
 
-        water_capacity:
-          overrides.water_capacity ||
-          null,
+        recommendation_status:
+          simulatedRecommendation,
 
-        relocation_radius_km:
-          overrides.relocation_radius_km ||
-          20,
-      },
-    },
-  };
+        delta,
+
+        overrides: {
+          rainfall_level:
+            rainfallLevel,
+
+          population:
+            targetPopulation,
+
+          water_capacity:
+            waterCapacity,
+
+          relocation_radius_km:
+            relocationRadius
+        },
+
+        scenario_method: {
+          baseline_source:
+            'AASHRAY live village risk score',
+
+          rainfall_adjustment:
+            rainfallLevel === 'extreme'
+              ? '+15% stress'
+              : rainfallLevel === 'moderate'
+                ? '+5% stress'
+                : '0% stress',
+
+          population_adjustment:
+            basePopulation > 0
+              ? 'Up to +20% based on population increase'
+              : 'Not applied: baseline population unavailable',
+
+          water_capacity_adjustment:
+            waterStress > 0
+              ? 'Applied because demand exceeds capacity'
+              : 'Not applied',
+
+          relocation_adjustment:
+            relocationRadius < 10
+              ? '+4% stress'
+              : relocationRadius < 20
+                ? '+2% stress'
+                : '0% stress',
+
+          note:
+            'Scenario estimate for decision support; not an official forecast.'
+        }
+      }
+    };
+  } catch (error) {
+    console.error(
+      'What-If simulation failed:',
+      error
+    );
+
+    return null;
+  }
 }
 
 // ============================================================
-// APPROVE / REJECT DECISION
+// DECISION
 // ============================================================
 
 export async function submitDecision(
   habitationId,
   {
     action,
-    justification = '',
+    justification = ''
   }
 ) {
   await delay(300);
 
   const newDecision = {
-    id: `DEC-${Date.now()}`,
+    id:
+      `DEC-${Date.now()}`,
 
     habitation_id:
       habitationId,
@@ -353,20 +835,24 @@ export async function submitDecision(
       'OFFICER-001',
 
     timestamp:
-      new Date().toISOString(),
+      new Date().toISOString()
   };
 
   const existingIdx =
     decisionsStore.findIndex(
       (d) =>
-        d.habitation_id === habitationId
+        d.habitation_id ===
+        habitationId
     );
 
   if (existingIdx >= 0) {
-    decisionsStore[existingIdx] =
-      newDecision;
+    decisionsStore[
+      existingIdx
+    ] = newDecision;
   } else {
-    decisionsStore.push(newDecision);
+    decisionsStore.push(
+      newDecision
+    );
   }
 
   return newDecision;
@@ -381,13 +867,15 @@ export async function getDecision(
 ) {
   await delay(150);
 
-  if (!habitationId) return null;
+  if (!habitationId) {
+    return null;
+  }
 
-  const decision =
+  return (
     decisionsStore.find(
       (d) =>
-        d.habitation_id === habitationId
-    );
-
-  return decision || null;
+        d.habitation_id ===
+        habitationId
+    ) || null
+  );
 }
