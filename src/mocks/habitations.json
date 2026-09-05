@@ -1,0 +1,50 @@
+[
+  {
+    "id": "KL-WYD-000123",
+    "name": "Wayanad Habitation 1 - Chooralmala",
+    "centroid": { "lat": 11.685, "lon": 76.132 },
+    "risk_score": 91,
+    "priority": "P1",
+    "population": 3200
+  },
+  {
+    "id": "KL-WYD-000124",
+    "name": "Wayanad Habitation 2 - Meppadi Valley",
+    "centroid": { "lat": 11.554, "lon": 76.128 },
+    "risk_score": 87,
+    "priority": "P1",
+    "population": 2850
+  },
+  {
+    "id": "KL-WYD-000125",
+    "name": "Wayanad Habitation 3 - Mundakkai Hill",
+    "centroid": { "lat": 11.670, "lon": 76.145 },
+    "risk_score": 74,
+    "priority": "P2",
+    "population": 1900
+  },
+  {
+    "id": "KL-WYD-000126",
+    "name": "Wayanad Habitation 4 - Vythiri Ridge",
+    "centroid": { "lat": 11.551, "lon": 76.042 },
+    "risk_score": 68,
+    "priority": "P2",
+    "population": 4100
+  },
+  {
+    "id": "KL-WYD-000127",
+    "name": "Wayanad Habitation 5 - Mananthavady North",
+    "centroid": { "lat": 11.802, "lon": 76.003 },
+    "risk_score": 45,
+    "priority": "P3",
+    "population": 5300
+  },
+  {
+    "id": "KL-WYD-000128",
+    "name": "Wayanad Habitation 6 - Kalpetta East",
+    "centroid": { "lat": 11.610, "lon": 76.082 },
+    "risk_score": 28,
+    "priority": "P4",
+    "population": 6200
+  }
+]

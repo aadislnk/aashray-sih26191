@@ -1,0 +1,29 @@
+{
+  "status": "multi_site",
+  "split_required": true,
+  "sites": [
+    {
+      "site": {
+        "id": "SITE-001",
+        "name": "Meppadi Relief Camp",
+        "rank": 1,
+        "capacity": 2200,
+        "distance_km": 8.5,
+        "safety": "high"
+      },
+      "allocated_population": 2200
+    },
+    {
+      "site": {
+        "id": "SITE-002",
+        "name": "Kalpetta High Ground School Zone",
+        "rank": 2,
+        "capacity": 2000,
+        "distance_km": 14.2,
+        "safety": "high"
+      },
+      "allocated_population": 2000
+    }
+  ],
+  "total_demand": 4200
+}
