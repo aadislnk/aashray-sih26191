@@ -22,95 +22,25 @@ const delay = (ms = 300) =>
 const decisionsStore = [...initialDecisions];
 
 // ============================================================
-// FETCH ALL 1508 REAL VILLAGES
+// FETCH REAL AASHRAY VILLAGES
 // ============================================================
 
 export async function getHabitations() {
   try {
-    const response = await fetch(
-      `${AI_API_URL}/api/villages`
-    );
+    const response = await fetch(`${AI_API_URL}/api/villages`);
 
     if (!response.ok) {
-      throw new Error(
-        'Failed to fetch AASHRAY villages'
-      );
+      throw new Error('Failed to fetch villages from AASHRAY AI API');
     }
 
     const data = await response.json();
 
-    return (data.villages || []).map((village) => {
-      const hasRisk =
-        village.risk_score !== null &&
-        village.risk_score !== undefined;
-
-      const isDataOnly =
-        !hasRisk ||
-        village.risk_category === 'DATA-ONLY' ||
-        village.priority === 'PENDING';
-
-      return {
-        id: village.id,
-        name: village.name,
-        vlcode: village.vlcode,
-
-        state: village.state,
-        district: village.district,
-        block: village.block,
-
-        // Never convert missing hazard/risk data into P4.
-        priority: isDataOnly
-          ? 'DATA-ONLY'
-          : village.priority,
-
-        risk_score: hasRisk
-          ? village.risk_score
-          : null,
-
-        risk_category: isDataOnly
-          ? 'DATA-ONLY'
-          : village.risk_category,
-
-        population:
-          village.population ?? null,
-
-        centroid:
-          village.centroid || {
-            lat: null,
-            lon: null,
-          },
-
-        hazards:
-          village.hazards || {
-            coastal: null,
-            flood: null,
-            cyclone: null,
-            rainfall: null,
-          },
-
-        hazards_available:
-          village.hazards_available || [],
-
-        hazard_contribution:
-          village.hazard_contribution || '',
-
-        profiles:
-          village.profiles || {},
-
-        data_note:
-          isDataOnly
-            ? 'Hazard risk assessment is not yet available for this village.'
-            : '',
-      };
-    });
+    return data.villages || [];
   } catch (error) {
-    console.error(
-      'AASHRAY AI API error:',
-      error
-    );
+    console.error('AASHRAY AI API error:', error);
 
+    // Keep existing demo working if API is unavailable
     await delay(300);
-
     return habitationsData;
   }
 }
@@ -128,102 +58,56 @@ export async function getHabitationDetail(id) {
     );
 
     if (!response.ok) {
-      throw new Error(
-        'Village not found in AASHRAY AI API'
-      );
+      throw new Error('Village not found in AASHRAY AI API');
     }
 
     const data = await response.json();
-
-    const hasRisk =
-      data.overall?.score !== null &&
-      data.overall?.score !== undefined;
-
-    const isDataOnly =
-      !hasRisk ||
-      data.overall?.category === 'DATA-ONLY' ||
-      data.overall?.priority === 'PENDING';
 
     return {
       id: data.id,
       name: data.name,
       vlcode: data.vlcode,
 
-      state: data.state,
       block: data.block,
       district: data.district,
 
-      priority: isDataOnly
-        ? 'DATA-ONLY'
-        : data.overall?.priority,
+      priority: data.overall?.priority || 'P4',
 
-      risk_score: hasRisk
-        ? data.overall?.score
-        : null,
+      risk_score: data.overall?.score ?? null,
+      risk_category: data.overall?.category || 'NO DATA',
 
-      risk_category: isDataOnly
-        ? 'DATA-ONLY'
-        : data.overall?.category,
+      population: data.population,
 
-      population:
-        data.population ?? null,
-
-      centroid:
-        data.centroid || {
-          lat: null,
-          lon: null,
-        },
+      centroid: data.centroid,
 
       hazards: {
-        coastal:
-          data.hazards?.coastal ?? null,
-
-        flood:
-          data.hazards?.flood ?? null,
-
-        cyclone:
-          data.hazards?.cyclone ?? null,
-
-        rainfall:
-          data.hazards?.rainfall ?? null,
+        coastal: data.hazards?.coastal ?? null,
+        flood: data.hazards?.flood ?? null,
+        cyclone: data.hazards?.cyclone ?? null,
+        rainfall: data.hazards?.rainfall ?? null,
       },
 
-      hazards_available:
-        data.hazards_available || [],
+      hazards_available: data.hazards_available || [],
 
-      hazard_contribution:
-        data.hazard_contribution || '',
+      hazard_contribution: data.hazard_contribution || '',
 
-      profiles:
-        data.profiles || {},
-
-      raw_data:
-        data.raw_data || {},
-
-      data_note:
-        isDataOnly
-          ? 'Hazard risk assessment is not yet available for this village.'
-          : data.data_note || '',
+      data_note: data.data_note || '',
     };
   } catch (error) {
-    console.error(
-      'AASHRAY village API error:',
-      error
-    );
+    console.error('AASHRAY village API error:', error);
 
+    // Fallback to existing mock data
     await delay(300);
 
-    return (
-      habitationDetailsData[id] ||
-      null
-    );
+    return habitationDetailsData[id] || null;
   }
 }
 
 // ============================================================
 // RELOCATION SITES
 // ============================================================
-// Existing demo data retained.
+// Still using existing demo data.
+// Real relocation optimization can be connected later.
 
 export async function getSites(id) {
   await delay(300);
@@ -232,40 +116,28 @@ export async function getSites(id) {
     return [];
   }
 
-  return (
-    sitesByHabitationData[id] || []
-  );
+  return sitesByHabitationData[id] || [];
 }
 
 // ============================================================
 // RELOCATION RECOMMENDATION
 // ============================================================
-// Existing demo logic retained.
+// Still using existing demo logic.
+// We will connect this to the backend later.
 
-export async function getRecommendation(
-  id,
-  state = null
-) {
+export async function getRecommendation(id, state = null) {
   await delay(300);
 
-  if (
-    !id ||
-    !habitationDetailsData[id]
-  ) {
+  if (!id || !habitationDetailsData[id]) {
     return null;
   }
 
-  if (
-    state === 'multi_site' ||
-    state === 'multisite'
-  ) {
+  // Manual demo states
+  if (state === 'multi_site' || state === 'multisite') {
     return recMultiSite;
   }
 
-  if (
-    state === 'no_safe_site' ||
-    state === 'nosafe'
-  ) {
+  if (state === 'no_safe_site' || state === 'nosafe') {
     return recNoSafeSite;
   }
 
@@ -273,17 +145,14 @@ export async function getRecommendation(
     return getCustomizedRecommended(id);
   }
 
-  const detail =
-    habitationDetailsData[id];
+  // Existing demo behavior
+  const detail = habitationDetailsData[id];
 
   if (id === 'KL-WYD-000123') {
     return recNoSafeSite;
   }
 
-  if (
-    id === 'KL-WYD-000124' ||
-    detail?.priority === 'P1'
-  ) {
+  if (id === 'KL-WYD-000124' || detail?.priority === 'P1') {
     return recMultiSite;
   }
 
@@ -293,17 +162,13 @@ export async function getRecommendation(
 function getCustomizedRecommended(id) {
   const sites =
     sitesByHabitationData[id] ||
-    sitesByHabitationData[
-      'KL-WYD-000123'
-    ];
+    sitesByHabitationData['KL-WYD-000123'];
 
   const primarySite =
-    sites?.[0] ||
-    recRecommended.site;
+    sites?.[0] || recRecommended.site;
 
   const altSites =
-    sites?.slice(1) ||
-    recRecommended.alternatives;
+    sites?.slice(1) || recRecommended.alternatives;
 
   return {
     status: 'recommended',
@@ -315,7 +180,8 @@ function getCustomizedRecommended(id) {
 // ============================================================
 // WHAT-IF
 // ============================================================
-// Existing demo simulation retained.
+// Existing demo simulation.
+// Real AI scenario simulation can be connected later.
 
 export async function runWhatIf(
   habitationId,
@@ -324,9 +190,7 @@ export async function runWhatIf(
   await delay(300);
 
   const baseDetail =
-    habitationDetailsData[
-      habitationId
-    ];
+    habitationDetailsData[habitationId];
 
   if (!baseDetail) return null;
 
@@ -348,29 +212,22 @@ export async function runWhatIf(
 
   let delta = 0;
 
-  if (
-    overrides.rainfall_level ===
-    'extreme'
-  ) {
+  // Rainfall
+  if (overrides.rainfall_level === 'extreme') {
     delta += 15;
   } else if (
-    overrides.rainfall_level ===
-    'moderate'
+    overrides.rainfall_level === 'moderate'
   ) {
     delta += 5;
   }
 
+  // Population
   const targetPopulation =
-    overrides.population ??
-    basePopulation;
+    overrides.population ?? basePopulation;
 
-  if (
-    targetPopulation >
-    basePopulation
-  ) {
+  if (targetPopulation > basePopulation) {
     const extraPop =
-      targetPopulation -
-      basePopulation;
+      targetPopulation - basePopulation;
 
     delta += Math.min(
       20,
@@ -378,18 +235,18 @@ export async function runWhatIf(
     );
   }
 
+  // Water capacity
   if (
     overrides.water_capacity &&
-    overrides.water_capacity <
-      targetPopulation
+    overrides.water_capacity < targetPopulation
   ) {
     delta += 6;
   }
 
+  // Relocation radius
   if (
     overrides.relocation_radius_km &&
-    overrides.relocation_radius_km <
-      10
+    overrides.relocation_radius_km < 10
   ) {
     delta += 4;
   }
@@ -397,23 +254,16 @@ export async function runWhatIf(
   const simulatedRisk =
     Math.min(
       100,
-      Math.max(
-        0,
-        baseRisk + delta
-      )
+      Math.max(0, baseRisk + delta)
     );
 
   let simulatedPriority = 'P4';
 
   if (simulatedRisk >= 80) {
     simulatedPriority = 'P1';
-  } else if (
-    simulatedRisk >= 60
-  ) {
+  } else if (simulatedRisk >= 60) {
     simulatedPriority = 'P2';
-  } else if (
-    simulatedRisk >= 40
-  ) {
+  } else if (simulatedRisk >= 40) {
     simulatedPriority = 'P3';
   }
 
@@ -509,18 +359,14 @@ export async function submitDecision(
   const existingIdx =
     decisionsStore.findIndex(
       (d) =>
-        d.habitation_id ===
-        habitationId
+        d.habitation_id === habitationId
     );
 
   if (existingIdx >= 0) {
-    decisionsStore[
-      existingIdx
-    ] = newDecision;
+    decisionsStore[existingIdx] =
+      newDecision;
   } else {
-    decisionsStore.push(
-      newDecision
-    );
+    decisionsStore.push(newDecision);
   }
 
   return newDecision;
@@ -540,8 +386,7 @@ export async function getDecision(
   const decision =
     decisionsStore.find(
       (d) =>
-        d.habitation_id ===
-        habitationId
+        d.habitation_id === habitationId
     );
 
   return decision || null;

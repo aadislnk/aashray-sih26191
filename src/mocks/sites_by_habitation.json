@@ -1,0 +1,248 @@
+{
+  "KL-WYD-000123": [
+    {
+      "id": "SITE-WYD-101",
+      "name": "Meppadi High Altitude Relief Complex",
+      "rank": 1,
+      "suitability": "high",
+      "safety": "high",
+      "capacity": 3400,
+      "required_capacity": 3200,
+      "allocated_population": 3200,
+      "binding_sector": "water",
+      "distance_km": 8.5,
+      "status": "recommended"
+    },
+    {
+      "id": "SITE-WYD-102",
+      "name": "Kalpetta Higher Secondary Ground Centre",
+      "rank": 2,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 2500,
+      "required_capacity": 3200,
+      "allocated_population": 0,
+      "binding_sector": "shelter",
+      "distance_km": 14.2,
+      "status": "alternative"
+    },
+    {
+      "id": "SITE-WYD-103",
+      "name": "Vythiri Community Indoor Stadium",
+      "rank": 3,
+      "suitability": "medium",
+      "safety": "medium",
+      "capacity": 1800,
+      "required_capacity": 3200,
+      "allocated_population": 0,
+      "binding_sector": "power",
+      "distance_km": 19.0,
+      "status": "alternative"
+    }
+  ],
+  "KL-WYD-000124": [
+    {
+      "id": "SITE-WYD-201",
+      "name": "Nedumbala Estate Community Centre",
+      "rank": 1,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 2200,
+      "required_capacity": 2850,
+      "allocated_population": 2200,
+      "binding_sector": "sanitation",
+      "distance_km": 6.8,
+      "status": "partial_allocation"
+    },
+    {
+      "id": "SITE-WYD-202",
+      "name": "Mundakkai North Transit Facility",
+      "rank": 2,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 1500,
+      "required_capacity": 2850,
+      "allocated_population": 650,
+      "binding_sector": "water",
+      "distance_km": 11.4,
+      "status": "split_partner"
+    },
+    {
+      "id": "SITE-WYD-203",
+      "name": "Vellarimala Foothill Relief Base",
+      "rank": 3,
+      "suitability": "low",
+      "safety": "medium",
+      "capacity": 1200,
+      "required_capacity": 2850,
+      "allocated_population": 0,
+      "binding_sector": "road_access",
+      "distance_km": 16.5,
+      "status": "standby"
+    }
+  ],
+  "KL-WYD-000125": [
+    {
+      "id": "SITE-WYD-301",
+      "name": "Attamala Government School Campus",
+      "rank": 1,
+      "suitability": "high",
+      "safety": "high",
+      "capacity": 2100,
+      "required_capacity": 1900,
+      "allocated_population": 1900,
+      "binding_sector": "water",
+      "distance_km": 5.2,
+      "status": "recommended"
+    },
+    {
+      "id": "SITE-WYD-302",
+      "name": "Soochipara Tourist Amenities Pavilion",
+      "rank": 2,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 1600,
+      "required_capacity": 1900,
+      "allocated_population": 0,
+      "binding_sector": "medical",
+      "distance_km": 9.7,
+      "status": "alternative"
+    },
+    {
+      "id": "SITE-WYD-303",
+      "name": "Kalladi Estate Transit Shed",
+      "rank": 3,
+      "suitability": "medium",
+      "safety": "medium",
+      "capacity": 1100,
+      "required_capacity": 1900,
+      "allocated_population": 0,
+      "binding_sector": "shelter",
+      "distance_km": 13.1,
+      "status": "alternative"
+    }
+  ],
+  "KL-WYD-000126": [
+    {
+      "id": "SITE-WYD-401",
+      "name": "Lakkidi Plateau Resettlement Zone",
+      "rank": 1,
+      "suitability": "high",
+      "safety": "high",
+      "capacity": 4500,
+      "required_capacity": 4100,
+      "allocated_population": 4100,
+      "binding_sector": "power",
+      "distance_km": 7.3,
+      "status": "recommended"
+    },
+    {
+      "id": "SITE-WYD-402",
+      "name": "Thariode Multi-Purpose Auditorium",
+      "rank": 2,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 3000,
+      "required_capacity": 4100,
+      "allocated_population": 0,
+      "binding_sector": "water",
+      "distance_km": 12.8,
+      "status": "alternative"
+    },
+    {
+      "id": "SITE-WYD-403",
+      "name": "Pookode Lake Convention Grounds",
+      "rank": 3,
+      "suitability": "medium",
+      "safety": "medium",
+      "capacity": 2200,
+      "required_capacity": 4100,
+      "allocated_population": 0,
+      "binding_sector": "sanitation",
+      "distance_km": 17.5,
+      "status": "alternative"
+    }
+  ],
+  "KL-WYD-000127": [
+    {
+      "id": "SITE-WYD-501",
+      "name": "Mananthavady Municipal Sports Stadium",
+      "rank": 1,
+      "suitability": "high",
+      "safety": "high",
+      "capacity": 6500,
+      "required_capacity": 5300,
+      "allocated_population": 5300,
+      "binding_sector": "water",
+      "distance_km": 4.1,
+      "status": "recommended"
+    },
+    {
+      "id": "SITE-WYD-502",
+      "name": "Valliyoorkavu Temple Exhibition Hall",
+      "rank": 2,
+      "suitability": "high",
+      "safety": "high",
+      "capacity": 4800,
+      "required_capacity": 5300,
+      "allocated_population": 0,
+      "binding_sector": "shelter",
+      "distance_km": 6.9,
+      "status": "alternative"
+    },
+    {
+      "id": "SITE-WYD-503",
+      "name": "Thalapuzha Tea Garden Facility",
+      "rank": 3,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 3200,
+      "required_capacity": 5300,
+      "allocated_population": 0,
+      "binding_sector": "road_access",
+      "distance_km": 11.2,
+      "status": "alternative"
+    }
+  ],
+  "KL-WYD-000128": [
+    {
+      "id": "SITE-WYD-601",
+      "name": "Kalpetta Regional Civil Station Grounds",
+      "rank": 1,
+      "suitability": "high",
+      "safety": "high",
+      "capacity": 8000,
+      "required_capacity": 6200,
+      "allocated_population": 6200,
+      "binding_sector": "none",
+      "distance_km": 3.4,
+      "status": "recommended"
+    },
+    {
+      "id": "SITE-WYD-602",
+      "name": "SKMJ High School Campus",
+      "rank": 2,
+      "suitability": "high",
+      "safety": "high",
+      "capacity": 6000,
+      "required_capacity": 6200,
+      "allocated_population": 0,
+      "binding_sector": "shelter",
+      "distance_km": 5.0,
+      "status": "alternative"
+    },
+    {
+      "id": "SITE-WYD-603",
+      "name": "Munderi Agricultural Research Station",
+      "rank": 3,
+      "suitability": "medium",
+      "safety": "high",
+      "capacity": 4500,
+      "required_capacity": 6200,
+      "allocated_population": 0,
+      "binding_sector": "water",
+      "distance_km": 8.6,
+      "status": "alternative"
+    }
+  ]
+}
