@@ -6,12 +6,17 @@ import recRecommended from '../mocks/recommendation_recommended.json';
 import recMultiSite from '../mocks/recommendation_multisite.json';
 import recNoSafeSite from '../mocks/recommendation_no_safe_site.json';
 
-const AI_API_URL = 'https://aashray-sih26191.onrender.com';
+const AI_API_URL =
+  'https://aashray-sih26191.onrender.com';
 
 const delay = (ms = 300) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+  new Promise((resolve) =>
+    setTimeout(resolve, ms)
+  );
 
-const decisionsStore = [...initialDecisions];
+const decisionsStore = [
+  ...initialDecisions
+];
 
 // ============================================================
 // REAL API DATA NORMALIZATION
@@ -39,7 +44,10 @@ function getRiskScore(village) {
     : null;
 }
 
-function getPriority(village, riskScore) {
+function getPriority(
+  village,
+  riskScore
+) {
   if (village?.priority) {
     return village.priority;
   }
@@ -55,7 +63,10 @@ function getPriority(village, riskScore) {
   return 'P4';
 }
 
-function getRiskCategory(village, riskScore) {
+function getRiskCategory(
+  village,
+  riskScore
+) {
   const category =
     village?.overall?.category ??
     village?.risk_category ??
@@ -113,7 +124,8 @@ function getHazardValue(value) {
     return null;
   }
 
-  const numericValue = Number(value);
+  const numericValue =
+    Number(value);
 
   return Number.isFinite(numericValue)
     ? numericValue
@@ -121,7 +133,8 @@ function getHazardValue(value) {
 }
 
 function getHazards(village) {
-  const hazards = village?.hazards || {};
+  const hazards =
+    village?.hazards || {};
 
   return {
     coastal: getHazardValue(
@@ -147,7 +160,11 @@ function getHazards(village) {
 }
 
 function getHazardsAvailable(village) {
-  if (Array.isArray(village?.hazards_available)) {
+  if (
+    Array.isArray(
+      village?.hazards_available
+    )
+  ) {
     return village.hazards_available;
   }
 
@@ -303,6 +320,14 @@ export async function getHabitations() {
 // ============================================================
 // FETCH VILLAGE DETAIL
 // ============================================================
+//
+// IMPORTANT:
+// This function NEVER falls back to the old mock
+// habitationDetailsData.
+//
+// What-If must always operate on the real
+// AASHRAY Render API village data.
+// ============================================================
 
 export async function getHabitationDetail(id) {
   if (!id) {
@@ -316,7 +341,7 @@ export async function getHabitationDetail(id) {
 
     if (!response.ok) {
       throw new Error(
-        'Village not found'
+        `Village API returned ${response.status}`
       );
     }
 
@@ -328,6 +353,12 @@ export async function getHabitationDetail(id) {
       data?.village ??
       data;
 
+    if (!village) {
+      throw new Error(
+        'Village API returned empty data'
+      );
+    }
+
     const normalized =
       normalizeVillage(village);
 
@@ -336,50 +367,64 @@ export async function getHabitationDetail(id) {
 
       id:
         data?.id ??
+        village?.id ??
         normalized.id,
 
       name:
         data?.name ??
+        village?.name ??
         normalized.name,
 
       vlcode:
         data?.vlcode ??
+        village?.vlcode ??
         normalized.vlcode,
 
       priority:
         data?.overall?.priority ??
+        village?.overall?.priority ??
         normalized.priority,
 
       risk_score:
         data?.overall?.score ??
+        village?.overall?.score ??
         normalized.risk_score,
 
       risk_category:
         data?.overall?.category ??
+        village?.overall?.category ??
         normalized.risk_category,
 
       population:
         data?.population ??
+        village?.population ??
+        data?.total_population_village ??
+        village?.total_population_village ??
         normalized.population,
 
       centroid:
         data?.centroid ??
+        village?.centroid ??
         normalized.centroid,
 
       hazards:
         data?.hazards ??
+        village?.hazards ??
         normalized.hazards,
 
       hazards_available:
         data?.hazards_available ??
+        village?.hazards_available ??
         normalized.hazards_available,
 
       hazard_contribution:
         data?.hazard_contribution ??
+        village?.hazard_contribution ??
         normalized.hazard_contribution,
 
       data_note:
         data?.data_note ??
+        village?.data_note ??
         normalized.risk_model_note ??
         '',
 
@@ -392,12 +437,8 @@ export async function getHabitationDetail(id) {
       error
     );
 
-    await delay(300);
-
-    return (
-      habitationDetailsData[id] ||
-      null
-    );
+    // NEVER return mock village data here.
+    return null;
   }
 }
 
@@ -491,9 +532,23 @@ function getCustomizedRecommended(id) {
 // WHAT-IF SCENARIO ENGINE
 // ============================================================
 //
-// Uses the REAL AASHRAY village risk score and population.
-// Scenario adjustments are transparent stress-test assumptions,
-// not official forecasts.
+// Uses LIVE AASHRAY village data.
+//
+// Inputs:
+//   rainfall_level
+//   population
+//   water_capacity
+//   relocation_radius_km
+//
+// Output:
+//   before
+//   after
+//   risk delta
+//   priority transition
+//   recommendation
+//
+// This is a decision-support stress test,
+// NOT an official forecast.
 // ============================================================
 
 export async function runWhatIf(
@@ -502,27 +557,44 @@ export async function runWhatIf(
 ) {
   try {
     // ----------------------------------------------------------
-    // Load REAL village data from Render API
+    // 1. LOAD LIVE VILLAGE
     // ----------------------------------------------------------
+
     const baseDetail =
-      await getHabitationDetail(habitationId);
+      await getHabitationDetail(
+        habitationId
+      );
 
     if (!baseDetail) {
+      console.error(
+        'What-If: live village data unavailable:',
+        habitationId
+      );
+
       return null;
     }
+
+    // ----------------------------------------------------------
+    // 2. BASELINE VALUES
+    // ----------------------------------------------------------
 
     const baseRisk = Math.max(
       0,
       Math.min(
         100,
-        Number(baseDetail.risk_score) || 0
+        Number(
+          baseDetail.risk_score
+        ) || 0
       )
     );
 
-    const basePopulation = Math.max(
-      0,
-      Number(baseDetail.population) || 0
-    );
+    const basePopulation =
+      Math.max(
+        0,
+        Number(
+          baseDetail.population
+        ) || 0
+      );
 
     const basePriority =
       baseDetail.priority ||
@@ -532,12 +604,14 @@ export async function runWhatIf(
       );
 
     // ----------------------------------------------------------
-    // Scenario parameters
+    // 3. SCENARIO INPUTS
     // ----------------------------------------------------------
 
     const rainfallLevel =
-      overrides.rainfall_level ||
-      'moderate';
+      String(
+        overrides.rainfall_level ??
+        'normal'
+      ).toLowerCase();
 
     const targetPopulation =
       Math.max(
@@ -549,8 +623,10 @@ export async function runWhatIf(
       );
 
     const waterCapacity =
-      overrides.water_capacity !== null &&
-      overrides.water_capacity !== undefined &&
+      overrides.water_capacity !==
+        null &&
+      overrides.water_capacity !==
+        undefined &&
       overrides.water_capacity !== ''
         ? Math.max(
             0,
@@ -562,7 +638,7 @@ export async function runWhatIf(
 
     const relocationRadius =
       Math.max(
-        5,
+        0,
         Number(
           overrides.relocation_radius_km ??
           20
@@ -570,19 +646,34 @@ export async function runWhatIf(
       );
 
     // ----------------------------------------------------------
-    // Calculate scenario stress
+    // 4. RISK STRESS COMPONENTS
     // ----------------------------------------------------------
 
-    let riskMultiplier = 1;
+    let rainfallStress = 0;
+    let populationStress = 0;
+    let waterStress = 0;
+    let relocationStress = 0;
 
-    // Rainfall stress
-    if (rainfallLevel === 'moderate') {
-      riskMultiplier += 0.05;
-    } else if (rainfallLevel === 'extreme') {
-      riskMultiplier += 0.15;
+    // ----------------------------------------------------------
+    // Rainfall
+    // ----------------------------------------------------------
+
+    if (
+      rainfallLevel === 'moderate'
+    ) {
+      rainfallStress = 0.05;
+    } else if (
+      rainfallLevel === 'extreme'
+    ) {
+      rainfallStress = 0.15;
     }
 
-    // Population stress
+    // ----------------------------------------------------------
+    // Population
+    //
+    // Maximum population-related stress = 20%.
+    // ----------------------------------------------------------
+
     if (basePopulation > 0) {
       const populationIncrease =
         Math.max(
@@ -594,14 +685,16 @@ export async function runWhatIf(
             basePopulation
         );
 
-      riskMultiplier += Math.min(
-        0.20,
-        populationIncrease * 0.20
-      );
+      populationStress =
+        Math.min(
+          0.20,
+          populationIncrease
+        );
     }
 
-    // Water-capacity stress
-    let waterStress = 0;
+    // ----------------------------------------------------------
+    // Water capacity
+    // ----------------------------------------------------------
 
     if (
       waterCapacity !== null &&
@@ -612,30 +705,42 @@ export async function runWhatIf(
         Math.min(
           0.10,
           (
-            (
-              targetPopulation -
-              waterCapacity
-            ) /
-              Math.max(
-                targetPopulation,
-                1
-              )
-          ) *
-            0.10
+            targetPopulation -
+            waterCapacity
+          ) /
+            Math.max(
+              targetPopulation,
+              1
+            )
         );
-
-      riskMultiplier += waterStress;
-    }
-
-    // Relocation-radius stress
-    if (relocationRadius < 10) {
-      riskMultiplier += 0.04;
-    } else if (relocationRadius < 20) {
-      riskMultiplier += 0.02;
     }
 
     // ----------------------------------------------------------
-    // Calculate simulated risk
+    // Relocation radius
+    // ----------------------------------------------------------
+
+    if (
+      relocationRadius < 10
+    ) {
+      relocationStress = 0.04;
+    } else if (
+      relocationRadius < 20
+    ) {
+      relocationStress = 0.02;
+    }
+
+    // ----------------------------------------------------------
+    // 5. TOTAL SCENARIO STRESS
+    // ----------------------------------------------------------
+
+    const totalStress =
+      rainfallStress +
+      populationStress +
+      waterStress +
+      relocationStress;
+
+    // ----------------------------------------------------------
+    // 6. SIMULATED RISK
     // ----------------------------------------------------------
 
     const simulatedRisk =
@@ -645,7 +750,7 @@ export async function runWhatIf(
           Math.min(
             100,
             baseRisk *
-              riskMultiplier
+              (1 + totalStress)
           )
         )
       );
@@ -655,21 +760,50 @@ export async function runWhatIf(
       Math.round(baseRisk);
 
     // ----------------------------------------------------------
-    // Calculate simulated priority
+    // 7. SIMULATED PRIORITY
     // ----------------------------------------------------------
 
-    let simulatedPriority = 'P4';
+    let simulatedPriority =
+      'P4';
 
-    if (simulatedRisk >= 75) {
-      simulatedPriority = 'P1';
-    } else if (simulatedRisk >= 50) {
-      simulatedPriority = 'P2';
-    } else if (simulatedRisk >= 25) {
-      simulatedPriority = 'P3';
+    if (
+      simulatedRisk >= 75
+    ) {
+      simulatedPriority =
+        'P1';
+    } else if (
+      simulatedRisk >= 50
+    ) {
+      simulatedPriority =
+        'P2';
+    } else if (
+      simulatedRisk >= 25
+    ) {
+      simulatedPriority =
+        'P3';
     }
 
     // ----------------------------------------------------------
-    // Calculate relocation recommendation
+    // 8. BASELINE RECOMMENDATION
+    // ----------------------------------------------------------
+
+    let baseRecommendation =
+      'recommended';
+
+    if (
+      baseRisk >= 80
+    ) {
+      baseRecommendation =
+        'no_safe_site';
+    } else if (
+      baseRisk >= 60
+    ) {
+      baseRecommendation =
+        'multi_site';
+    }
+
+    // ----------------------------------------------------------
+    // 9. SIMULATED RECOMMENDATION
     // ----------------------------------------------------------
 
     let simulatedRecommendation =
@@ -699,22 +833,77 @@ export async function runWhatIf(
     }
 
     // ----------------------------------------------------------
-    // Baseline recommendation
+    // 10. DOMINANT FACTOR
     // ----------------------------------------------------------
 
-    let baseRecommendation =
-      'recommended';
+    const factors = [
+      {
+        name: 'Rainfall',
+        value: rainfallStress
+      },
+      {
+        name: 'Population',
+        value: populationStress
+      },
+      {
+        name: 'Water capacity',
+        value: waterStress
+      },
+      {
+        name: 'Relocation radius',
+        value: relocationStress
+      }
+    ];
 
-    if (baseRisk >= 80) {
-      baseRecommendation =
-        'no_safe_site';
-    } else if (baseRisk >= 60) {
-      baseRecommendation =
-        'multi_site';
+    factors.sort(
+      (a, b) =>
+        b.value - a.value
+    );
+
+    const dominantFactor =
+      factors[0]?.value > 0
+        ? factors[0].name
+        : 'No additional stress';
+
+    // ----------------------------------------------------------
+    // 11. HUMAN-READABLE EXPLANATION
+    // ----------------------------------------------------------
+
+    const explanationParts = [];
+
+    if (rainfallStress > 0) {
+      explanationParts.push(
+        `${rainfallLevel} rainfall increases stress`
+      );
     }
 
+    if (populationStress > 0) {
+      explanationParts.push(
+        'higher population increases exposure'
+      );
+    }
+
+    if (waterStress > 0) {
+      explanationParts.push(
+        'population exceeds available water capacity'
+      );
+    }
+
+    if (relocationStress > 0) {
+      explanationParts.push(
+        'limited relocation radius increases planning stress'
+      );
+    }
+
+    const explanation =
+      explanationParts.length > 0
+        ? explanationParts.join(
+            '; '
+          ) + '.'
+        : 'No additional scenario stress was applied.';
+
     // ----------------------------------------------------------
-    // Return exact structure expected by WhatIf.jsx
+    // 12. RETURN RESULT
     // ----------------------------------------------------------
 
     return {
@@ -747,6 +936,15 @@ export async function runWhatIf(
 
         delta,
 
+        priority_changed:
+          basePriority !==
+          simulatedPriority,
+
+        dominant_factor:
+          dominantFactor,
+
+        explanation,
+
         overrides: {
           rainfall_level:
             rainfallLevel,
@@ -766,28 +964,37 @@ export async function runWhatIf(
             'AASHRAY live village risk score',
 
           rainfall_adjustment:
-            rainfallLevel === 'extreme'
-              ? '+15% stress'
-              : rainfallLevel === 'moderate'
-                ? '+5% stress'
-                : '0% stress',
+            rainfallStress > 0
+              ? `+${Math.round(
+                  rainfallStress * 100
+                )}% stress`
+              : '0% stress',
 
           population_adjustment:
-            basePopulation > 0
-              ? 'Up to +20% based on population increase'
-              : 'Not applied: baseline population unavailable',
+            populationStress > 0
+              ? `+${Math.round(
+                  populationStress * 100
+                )}% stress`
+              : '0% stress',
 
           water_capacity_adjustment:
             waterStress > 0
-              ? 'Applied because demand exceeds capacity'
-              : 'Not applied',
+              ? `+${Math.round(
+                  waterStress * 100
+                )}% stress`
+              : '0% stress',
 
           relocation_adjustment:
-            relocationRadius < 10
-              ? '+4% stress'
-              : relocationRadius < 20
-                ? '+2% stress'
-                : '0% stress',
+            relocationStress > 0
+              ? `+${Math.round(
+                  relocationStress * 100
+                )}% stress`
+              : '0% stress',
+
+          total_stress:
+            `+${Math.round(
+              totalStress * 100
+            )}%`,
 
           note:
             'Scenario estimate for decision support; not an official forecast.'

@@ -1,74 +1,110 @@
-import React,{useEffect,useRef} from 'react';
-import {useNavigate} from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const OSM_RASTER_STYLE={
-  version:8,
-  sources:{
-    osm:{
-      type:'raster',
-      tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize:256,
-      attribution:'© OpenStreetMap contributors'
+const OSM_RASTER_STYLE = {
+  version: 8,
+
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: [
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors'
     }
   },
-  layers:[
+
+  layers: [
     {
-      id:'osm',
-      type:'raster',
-      source:'osm'
+      id: 'osm',
+      type: 'raster',
+      source: 'osm'
     }
   ]
 };
 
-const PRIORITY_CONFIG={
-  P1:{color:'#dc2626',size:30,label:'P1'},
-  P2:{color:'#f97316',size:26,label:'P2'},
-  P3:{color:'#eab308',size:22,label:'P3'},
-  P4:{color:'#22c55e',size:18,label:'P4'}
-};
-
-const RISK_CONFIG={
-  very_high:{
-    color:'#dc2626',
-    size:28,
-    label:'VH'
+const PRIORITY_CONFIG = {
+  P1: {
+    color: '#dc2626',
+    size: 30,
+    label: 'P1'
   },
-  high:{
-    color:'#f97316',
-    size:25,
-    label:'H'
+  P2: {
+    color: '#f97316',
+    size: 26,
+    label: 'P2'
   },
-  moderate:{
-    color:'#eab308',
-    size:22,
-    label:'M'
+  P3: {
+    color: '#eab308',
+    size: 22,
+    label: 'P3'
   },
-  low:{
-    color:'#22c55e',
-    size:19,
-    label:'L'
+  P4: {
+    color: '#22c55e',
+    size: 18,
+    label: 'P4'
   }
 };
 
-function getRiskConfig(value){
+const RISK_CONFIG = {
+  very_high: {
+    color: '#dc2626',
+    size: 28,
+    label: 'VH'
+  },
+  high: {
+    color: '#f97316',
+    size: 25,
+    label: 'H'
+  },
+  moderate: {
+    color: '#eab308',
+    size: 22,
+    label: 'M'
+  },
+  low: {
+    color: '#22c55e',
+    size: 19,
+    label: 'L'
+  }
+};
 
-  if(value==null){
+// ============================================================
+// REAL WAYANAD LANDSLIDE INVENTORY
+// ============================================================
+// 65 inventory records spatially matched to these 3 pilot
+// villages from the processed Wayanad landslide inventory.
+// ============================================================
+
+const WAYANAD_LANDSLIDE_EVENTS = {
+  'Thrikkaipatta Part': 3,
+  'Vellarimala': 32,
+  'Kottappadi Part': 30
+};
+
+function getRiskConfig(value) {
+  if (value === null || value === undefined) {
     return RISK_CONFIG.low;
   }
 
-  const score=Number(value);
+  const score = Number(value);
 
-  if(score>=0.75){
+  if (!Number.isFinite(score)) {
+    return RISK_CONFIG.low;
+  }
+
+  if (score >= 0.75) {
     return RISK_CONFIG.very_high;
   }
 
-  if(score>=0.50){
+  if (score >= 0.50) {
     return RISK_CONFIG.high;
   }
 
-  if(score>=0.25){
+  if (score >= 0.25) {
     return RISK_CONFIG.moderate;
   }
 
@@ -79,53 +115,112 @@ function getActiveLayer({
   showFlood,
   showCyclone,
   showRainfall,
-  showRisk
-}){
-
-  if(showRisk) return 'risk';
-  if(showFlood) return 'flood';
-  if(showCyclone) return 'cyclone';
-  if(showRainfall) return 'rainfall';
+  showRisk,
+  showLandslide
+}) {
+  if (showLandslide) return 'landslide';
+  if (showRisk) return 'risk';
+  if (showFlood) return 'flood';
+  if (showCyclone) return 'cyclone';
+  if (showRainfall) return 'rainfall';
 
   return 'habitations';
 }
 
+function getLatitude(habitation) {
+  const value = Number(
+    habitation?.centroid?.lat ??
+    habitation?.latitude
+  );
+
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
+
+function getLongitude(habitation) {
+  const value = Number(
+    habitation?.centroid?.lng ??
+    habitation?.centroid?.lon ??
+    habitation?.longitude
+  );
+
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
+
+function hasValidCoordinates(habitation) {
+  const lat = getLatitude(habitation);
+  const lon = getLongitude(habitation);
+
+  return (
+    lat !== null &&
+    lon !== null &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
+}
+
+function isWayanadLandslideVillage(habitation) {
+  if (!habitation) {
+    return false;
+  }
+
+  if (
+    String(habitation.district || '')
+      .toLowerCase() !== 'wayanad'
+  ) {
+    return false;
+  }
+
+  return (
+    WAYANAD_LANDSLIDE_EVENTS[
+      habitation.name
+    ] !== undefined
+  );
+}
+
 export default function Map({
-  habitations=[],
+  habitations = [],
   onMarkerClick,
-  showHabitations=true,
-  showFlood=false,
-  showCyclone=false,
-  showRainfall=false,
-  showRisk=false,
-  showLandslide=false
-}){
+  showHabitations = true,
+  showFlood = false,
+  showCyclone = false,
+  showRainfall = false,
+  showRisk = false,
+  showLandslide = false
+}) {
+  const mapContainer = useRef(null);
+  const mapInstance = useRef(null);
+  const markersRef = useRef([]);
+  const activePopupRef = useRef(null);
 
-  const mapContainer=useRef(null);
-  const mapInstance=useRef(null);
-  const markersRef=useRef([]);
+  const navigate = useNavigate();
 
-  const navigate=useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
-  const navigateRef=useRef(navigate);
-  navigateRef.current=navigate;
+  const onMarkerClickRef = useRef(onMarkerClick);
+  onMarkerClickRef.current = onMarkerClick;
 
-  const onMarkerClickRef=useRef(onMarkerClick);
-  onMarkerClickRef.current=onMarkerClick;
+  // ==========================================================
+  // CREATE MAP
+  // ==========================================================
 
-  useEffect(()=>{
+  useEffect(() => {
+    if (!mapContainer.current) {
+      return;
+    }
 
-    if(!mapContainer.current) return;
-
-    const map=new maplibregl.Map({
-      container:mapContainer.current,
-      style:OSM_RASTER_STYLE,
-
-      center:[86.55,20.45],
-
-      zoom:9,
-
-      attributionControl:true
+    const map = new maplibregl.Map({
+      container: mapContainer.current,
+      style: OSM_RASTER_STYLE,
+      center: [78.9629, 22.5937],
+      zoom: 5,
+      attributionControl: true
     });
 
     map.addControl(
@@ -133,202 +228,276 @@ export default function Map({
       'top-left'
     );
 
-    mapInstance.current=map;
+    mapInstance.current = map;
 
-    map.on('load',()=>{
-
-      if(habitations.length===0) return;
-
-      const bounds=new maplibregl.LngLatBounds();
-
-      habitations.forEach(h=>{
-
-        if(
-          h.centroid &&
-          typeof h.centroid.lat==='number' &&
-          typeof h.centroid.lon==='number'
-        ){
-
-          bounds.extend([
-            h.centroid.lon,
-            h.centroid.lat
-          ]);
-
-        }
-
-      });
-
-      if(!bounds.isEmpty()){
-
-        map.fitBounds(
-          bounds,
-          {
-            padding:60,
-            maxZoom:11,
-            duration:800
-          }
-        );
-
-      }
-
+    map.on('load', () => {
+      fitMapToHabitations(map, habitations);
     });
 
-    return()=>{
+    return () => {
+      activePopupRef.current = null;
 
       map.remove();
 
-      mapInstance.current=null;
-
+      mapInstance.current = null;
     };
+  }, []);
 
-  },[]);
+  // ==========================================================
+  // FIT MAP
+  // ==========================================================
 
-  useEffect(()=>{
-
-    if(!mapInstance.current) return;
-
-    const map=mapInstance.current;
-
-    markersRef.current.forEach(
-      marker=>marker.remove()
-    );
-
-    markersRef.current=[];
-
-    if(!habititionsValid(habitations)){
+  useEffect(() => {
+    if (!mapInstance.current) {
       return;
     }
 
-    const activeLayer=getActiveLayer({
+    const map = mapInstance.current;
+
+    if (!map.loaded()) {
+      return;
+    }
+
+    fitMapToHabitations(
+      map,
+      habitations
+    );
+  }, [habitations]);
+
+  // ==========================================================
+  // MARKERS
+  // ==========================================================
+
+  useEffect(() => {
+    if (!mapInstance.current) {
+      return;
+    }
+
+    const map = mapInstance.current;
+
+    markersRef.current.forEach(
+      (marker) => marker.remove()
+    );
+
+    markersRef.current = [];
+
+    activePopupRef.current = null;
+
+    if (
+      !Array.isArray(habitations) ||
+      habitations.length === 0
+    ) {
+      return;
+    }
+
+    const activeLayer = getActiveLayer({
       showFlood,
       showCyclone,
       showRainfall,
-      showRisk
+      showRisk,
+      showLandslide
     });
 
-    if(
-      activeLayer==='habitations' &&
+    if (
+      activeLayer === 'habitations' &&
       !showHabitations
-    ){
+    ) {
       return;
     }
 
-    if(showLandslide){
-
-      console.warn(
-        'Landslide layer requires Wayanad/Kerala spatial data and is not drawn over Kendrapara.'
-      );
-
-    }
-
-    habitations.forEach(h=>{
-
-      if(
-        !h.centroid ||
-        typeof h.centroid.lat!=='number' ||
-        typeof h.centroid.lon!=='number'
-      ){
-
+    habitations.forEach((h) => {
+      if (!hasValidCoordinates(h)) {
         return;
+      }
 
+      const latitude = getLatitude(h);
+      const longitude = getLongitude(h);
+
+      const isLandslideVillage =
+        isWayanadLandslideVillage(h);
+
+      // --------------------------------------------------------
+      // Hide non-landslide villages when landslide layer active
+      // --------------------------------------------------------
+
+      if (
+        activeLayer === 'landslide' &&
+        !isLandslideVillage
+      ) {
+        return;
       }
 
       let config;
+      let layerLabel;
 
-      let layerLabel='Habitations';
+      // --------------------------------------------------------
+      // LANDSLIDE
+      // --------------------------------------------------------
 
-      if(activeLayer==='habitations'){
+      if (
+        activeLayer === 'landslide'
+      ) {
+        config = {
+          color: '#7f1d1d',
+          size: 32,
+          label: 'LS'
+        };
 
-        config=
-          PRIORITY_CONFIG[h.priority] ||
-          PRIORITY_CONFIG.P4;
-
-        layerLabel='Village Priority';
-
-      }else{
-
-        const hazardValue=
-          h.hazards?.[activeLayer];
-
-        config=getRiskConfig(hazardValue);
-
-        if(activeLayer==='risk'){
-          layerLabel='Multi-Hazard Risk';
-        }
-
-        if(activeLayer==='flood'){
-          layerLabel='Flood Risk';
-        }
-
-        if(activeLayer==='cyclone'){
-          layerLabel='Cyclone Risk';
-        }
-
-        if(activeLayer==='rainfall'){
-          layerLabel='Rainfall Risk';
-        }
-
+        layerLabel =
+          'Wayanad Landslide Inventory';
       }
 
-      const markerContainer=
+      // --------------------------------------------------------
+      // HABITATION PRIORITY
+      // --------------------------------------------------------
+
+      else if (
+        activeLayer === 'habitations'
+      ) {
+        config =
+          PRIORITY_CONFIG[
+            h.priority
+          ] ||
+          PRIORITY_CONFIG.P4;
+
+        layerLabel =
+          'Village Priority';
+      }
+
+      // --------------------------------------------------------
+      // OTHER HAZARDS
+      // --------------------------------------------------------
+
+      else {
+        let hazardValue = null;
+
+        if (
+          activeLayer === 'risk'
+        ) {
+          hazardValue =
+            h.risk_score != null
+              ? Number(h.risk_score) / 100
+              : null;
+        } else {
+          hazardValue =
+            h.hazards?.[
+              activeLayer
+            ];
+        }
+
+        config =
+          getRiskConfig(
+            hazardValue
+          );
+
+        if (
+          activeLayer === 'risk'
+        ) {
+          layerLabel =
+            'Multi-Hazard Risk';
+        }
+
+        if (
+          activeLayer === 'flood'
+        ) {
+          layerLabel =
+            'Flood Risk';
+        }
+
+        if (
+          activeLayer === 'cyclone'
+        ) {
+          layerLabel =
+            'Cyclone Risk';
+        }
+
+        if (
+          activeLayer === 'rainfall'
+        ) {
+          layerLabel =
+            'Rainfall Risk';
+        }
+      }
+
+      // ========================================================
+      // MARKER
+      // ========================================================
+
+      const markerContainer =
         document.createElement('div');
 
-      markerContainer.className=
-        'maplibre-marker-hitbox';
+      markerContainer.style.width =
+        '44px';
 
-      markerContainer.style.width='44px';
-      markerContainer.style.height='44px';
-      markerContainer.style.display='flex';
-      markerContainer.style.alignItems='center';
-      markerContainer.style.justifyContent='center';
-      markerContainer.style.cursor='pointer';
-      markerContainer.style.pointerEvents='auto';
-      markerContainer.style.background='transparent';
-      markerContainer.style.userSelect='none';
+      markerContainer.style.height =
+        '44px';
 
-      const innerCircle=
+      markerContainer.style.display =
+        'flex';
+
+      markerContainer.style.alignItems =
+        'center';
+
+      markerContainer.style.justifyContent =
+        'center';
+
+      markerContainer.style.cursor =
+        'pointer';
+
+      markerContainer.style.pointerEvents =
+        'auto';
+
+      markerContainer.style.background =
+        'transparent';
+
+      // --------------------------------------------------------
+      // Circle
+      // --------------------------------------------------------
+
+      const innerCircle =
         document.createElement('div');
 
-      innerCircle.className=
-        'maplibre-marker-circle';
-
-      innerCircle.style.width=
+      innerCircle.style.width =
         `${config.size}px`;
 
-      innerCircle.style.height=
+      innerCircle.style.height =
         `${config.size}px`;
 
-      innerCircle.style.backgroundColor=
+      innerCircle.style.backgroundColor =
         config.color;
 
-      innerCircle.style.border=
+      innerCircle.style.border =
         '2.5px solid #ffffff';
 
-      innerCircle.style.borderRadius='50%';
+      innerCircle.style.borderRadius =
+        '50%';
 
-      innerCircle.style.boxShadow=
-        '0 2px 8px rgba(0,0,0,0.35)';
+      innerCircle.style.boxShadow =
+        '0 2px 8px rgba(0,0,0,0.4)';
 
-      innerCircle.style.display='flex';
-      innerCircle.style.alignItems='center';
-      innerCircle.style.justifyContent='center';
+      innerCircle.style.display =
+        'flex';
 
-      innerCircle.style.color='#ffffff';
+      innerCircle.style.alignItems =
+        'center';
 
-      innerCircle.style.fontSize=
-        config.size>=26?'9px':'8px';
+      innerCircle.style.justifyContent =
+        'center';
 
-      innerCircle.style.fontWeight='bold';
+      innerCircle.style.color =
+        '#ffffff';
 
-      innerCircle.style.transformOrigin=
-        'center center';
+      innerCircle.style.fontSize =
+        '9px';
 
-      innerCircle.style.transition=
-        'transform 0.15s ease, box-shadow 0.15s ease';
+      innerCircle.style.fontWeight =
+        'bold';
 
-      innerCircle.style.pointerEvents='none';
+      innerCircle.style.pointerEvents =
+        'none';
 
-      innerCircle.innerText=config.label;
+      innerCircle.innerText =
+        config.label;
 
       markerContainer.appendChild(
         innerCircle
@@ -336,110 +505,230 @@ export default function Map({
 
       markerContainer.addEventListener(
         'mouseenter',
-        ()=>{
-          innerCircle.style.transform=
-            'scale(1.22)';
-
-          innerCircle.style.boxShadow=
-            '0 4px 14px rgba(0,0,0,0.45)';
+        () => {
+          innerCircle.style.transform =
+            'scale(1.2)';
         }
       );
 
       markerContainer.addEventListener(
         'mouseleave',
-        ()=>{
-          innerCircle.style.transform=
+        () => {
+          innerCircle.style.transform =
             'scale(1)';
-
-          innerCircle.style.boxShadow=
-            '0 2px 8px rgba(0,0,0,0.35)';
         }
       );
 
-      const hazards=h.hazards||{};
+      // ========================================================
+      // POPUP
+      // ========================================================
 
-      const hazardRows=`
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">
-          <div style="font-weight:700;color:#0f172a;margin-bottom:4px;">
-            AI/ML Hazard Scores
+      const eventCount =
+        WAYANAD_LANDSLIDE_EVENTS[
+          h.name
+        ];
+
+      const popupHtml = `
+
+        <div
+          style="
+            font-family:Inter,sans-serif;
+            padding:4px;
+            min-width:250px;
+          "
+        >
+
+          <div
+            style="
+              border-bottom:1px solid #e2e8f0;
+              padding-bottom:7px;
+              margin-bottom:8px;
+            "
+          >
+
+            <div
+              style="
+                font-size:10px;
+                font-weight:700;
+                color:#2563eb;
+                font-family:monospace;
+              "
+            >
+              ${escapeHtml(h.id)}
+            </div>
+
+            <div
+              style="
+                margin-top:2px;
+                font-size:14px;
+                font-weight:700;
+                color:#0f172a;
+              "
+            >
+              ${escapeHtml(h.name)}
+            </div>
+
           </div>
 
-          <div style="display:flex;justify-content:space-between;">
-            <span>Coastal</span>
-            <strong>${formatHazard(hazards.coastal)}</strong>
-          </div>
+          <div
+            style="
+              font-size:12px;
+              line-height:1.6;
+              color:#475569;
+            "
+          >
 
-          <div style="display:flex;justify-content:space-between;">
-            <span>Flood</span>
-            <strong>${formatHazard(hazards.flood)}</strong>
-          </div>
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+              "
+            >
+              <span>
+                Layer:
+              </span>
 
-          <div style="display:flex;justify-content:space-between;">
-            <span>Cyclone</span>
-            <strong>${formatHazard(hazards.cyclone)}</strong>
-          </div>
-
-          <div style="display:flex;justify-content:space-between;">
-            <span>Rainfall</span>
-            <strong>${formatHazard(hazards.rainfall)}</strong>
-          </div>
-        </div>
-      `;
-
-      const popupHtml=`
-
-        <div style="font-family:Inter,sans-serif;padding:4px;min-width:240px;">
-
-          <div style="border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:8px;">
-
-            <span style="font-size:10px;font-weight:700;color:#2563eb;font-family:monospace;">
-              ${h.id}
-            </span>
-
-            <h4 style="margin:2px 0 0 0;font-size:14px;font-weight:700;color:#0f172a;">
-              ${h.name}
-            </h4>
-
-          </div>
-
-          <div style="font-size:12px;line-height:1.6;color:#475569;margin-bottom:10px;">
-
-            <div style="display:flex;justify-content:space-between;">
-              <span>Layer:</span>
-              <strong style="color:${config.color};">
+              <strong
+                style="
+                  color:${config.color};
+                "
+              >
                 ${layerLabel}
               </strong>
             </div>
 
-            <div style="display:flex;justify-content:space-between;">
-              <span>Priority:</span>
-              <strong style="color:${config.color};">
-                ${h.priority}
-              </strong>
-            </div>
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+              "
+            >
+              <span>
+                Priority:
+              </span>
 
-            <div style="display:flex;justify-content:space-between;">
-              <span>Overall Risk:</span>
-              <strong style="color:#dc2626;">
-                ${h.risk_score ?? 'N/A'} / 100
-              </strong>
-            </div>
-
-            <div style="display:flex;justify-content:space-between;">
-              <span>Population:</span>
               <strong>
-                ${h.population?.toLocaleString()||'N/A'}
+                ${h.priority || 'P4'}
               </strong>
             </div>
 
-            ${hazardRows}
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+              "
+            >
+              <span>
+                AASHRAY Risk:
+              </span>
 
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:8px;">
-              <span>Centroid:</span>
+              <strong
+                style="
+                  color:#dc2626;
+                "
+              >
+                ${
+                  h.risk_score != null
+                    ? `${Number(
+                        h.risk_score
+                      ).toFixed(1)} / 100`
+                    : 'N/A'
+                }
+              </strong>
+            </div>
 
-              <span style="font-family:monospace;">
-                ${h.centroid.lat.toFixed(3)},
-                ${h.centroid.lon.toFixed(3)}
+            ${
+              activeLayer === 'landslide'
+                ? `
+                  <div
+                    style="
+                      margin-top:8px;
+                      padding-top:8px;
+                      border-top:1px solid #e2e8f0;
+                    "
+                  >
+
+                    <div
+                      style="
+                        display:flex;
+                        justify-content:space-between;
+                      "
+                    >
+                      <span>
+                        Inventory Events:
+                      </span>
+
+                      <strong
+                        style="
+                          color:#7f1d1d;
+                        "
+                      >
+                        ${eventCount}
+                      </strong>
+                    </div>
+
+                    <div
+                      style="
+                        margin-top:5px;
+                        font-size:10px;
+                        color:#64748b;
+                      "
+                    >
+                      Spatially matched records
+                      from the Wayanad landslide
+                      inventory.
+                    </div>
+
+                  </div>
+                `
+                : ''
+            }
+
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+                margin-top:7px;
+              "
+            >
+
+              <span>
+                Population:
+              </span>
+
+              <strong>
+                ${
+                  h.population != null
+                    ? Number(
+                        h.population
+                      ).toLocaleString()
+                    : 'N/A'
+                }
+              </strong>
+
+            </div>
+
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+                font-size:10px;
+                color:#94a3b8;
+                margin-top:8px;
+              "
+            >
+
+              <span>
+                Coordinates:
+              </span>
+
+              <span
+                style="
+                  font-family:monospace;
+                "
+              >
+                ${latitude.toFixed(4)},
+                ${longitude.toFixed(4)}
               </span>
 
             </div>
@@ -451,100 +740,127 @@ export default function Map({
             class="maplibre-view-details-btn"
             style="
               width:100%;
-              display:block;
-              text-align:center;
-              background-color:#2563eb;
-              color:#ffffff;
-              border:none;
+              margin-top:10px;
+              background:#2563eb;
+              color:#fff;
+              border:0;
+              padding:7px;
+              border-radius:6px;
               font-size:12px;
               font-weight:600;
-              padding:7px 12px;
-              border-radius:6px;
               cursor:pointer;
             "
           >
-            View Details →
+            View Village Profile →
           </button>
 
         </div>
       `;
 
-      const popup=
+      const popup =
         new maplibregl.Popup({
-          offset:14,
-          closeButton:true,
-          closeOnClick:false,
-          maxWidth:'320px'
-        })
-        .setHTML(popupHtml);
+          offset: 14,
+          closeButton: true,
+          closeOnClick: false,
+          maxWidth: '320px'
+        }).setHTML(
+          popupHtml
+        );
 
-      popup.on('open',()=>{
+      popup.on(
+        'open',
+        () => {
+          activePopupRef.current =
+            popup;
 
-        const popupEl=
-          popup.getElement();
+          const popupElement =
+            popup.getElement();
 
-        if(!popupEl) return;
-
-        const detailsBtn=
-          popupEl.querySelector(
-            '.maplibre-view-details-btn'
-          );
-
-        if(detailsBtn){
-
-          detailsBtn.onclick=(e)=>{
-
-            e.preventDefault();
-            e.stopPropagation();
-
-            if(navigateRef.current){
-
-              navigateRef.current(
-                `/habitation/${h.id}`
-              );
-
-            }
-
-          };
-
-        }
-
-      });
-
-      const marker=
-        new maplibregl.Marker({
-          element:markerContainer,
-          anchor:'center'
-        })
-        .setLngLat([
-          h.centroid.lon,
-          h.centroid.lat
-        ])
-        .setPopup(popup)
-        .addTo(map);
-
-      markerContainer.addEventListener(
-        'click',
-        e=>{
-
-          e.stopPropagation();
-
-          marker.togglePopup();
-
-          if(onMarkerClickRef.current){
-
-            onMarkerClickRef.current(h);
-
+          if (!popupElement) {
+            return;
           }
 
+          const detailsButton =
+            popupElement.querySelector(
+              '.maplibre-view-details-btn'
+            );
+
+          if (
+            detailsButton
+          ) {
+            detailsButton.onclick =
+              (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                navigateRef.current(
+                  `/habitation/${h.id}`
+                );
+              };
+          }
         }
       );
 
-      markersRef.current.push(marker);
+      popup.on(
+        'close',
+        () => {
+          if (
+            activePopupRef.current ===
+            popup
+          ) {
+            activePopupRef.current =
+              null;
+          }
+        }
+      );
 
+      // ========================================================
+      // ADD MARKER
+      // ========================================================
+
+      const marker =
+        new maplibregl.Marker({
+          element:
+            markerContainer,
+          anchor: 'center'
+        })
+          .setLngLat([
+            longitude,
+            latitude
+          ])
+          .setPopup(popup)
+          .addTo(map);
+
+      markerContainer.addEventListener(
+        'click',
+        (event) => {
+          event.stopPropagation();
+
+          if (
+            activePopupRef.current &&
+            activePopupRef.current !==
+              popup
+          ) {
+            activePopupRef.current.remove();
+          }
+
+          marker.togglePopup();
+
+          if (
+            onMarkerClickRef.current
+          ) {
+            onMarkerClickRef.current(
+              h
+            );
+          }
+        }
+      );
+
+      markersRef.current.push(
+        marker
+      );
     });
-
-  },[
+  }, [
     habitations,
     showHabitations,
     showFlood,
@@ -554,35 +870,133 @@ export default function Map({
     showLandslide
   ]);
 
-  return(
-
-    <div className="relative w-full h-full min-h-[500px] rounded-xl overflow-hidden shadow-inner border border-slate-300">
+  return (
+    <div
+      className="
+        relative
+        w-full
+        h-full
+        min-h-[500px]
+        rounded-xl
+        overflow-hidden
+        shadow-inner
+        border
+        border-slate-300
+      "
+    >
 
       <div
         ref={mapContainer}
-        className="w-full h-full min-h-[500px]"
+        className="
+          w-full
+          h-full
+          min-h-[500px]
+        "
       />
 
     </div>
-
   );
 }
 
-function habititionsValid(habitations){
+// ============================================================
+// FIT MAP
+// ============================================================
 
-  return(
-    Array.isArray(habitations) &&
-    habitations.length>0
-  );
-
-}
-
-function formatHazard(value){
-
-  if(value==null){
-    return 'N/A';
+function fitMapToHabitations(
+  map,
+  habitations
+) {
+  if (
+    !Array.isArray(
+      habitations
+    ) ||
+    habitations.length === 0
+  ) {
+    return;
   }
 
-  return `${(Number(value)*100).toFixed(1)}`;
+  const bounds =
+    new maplibregl.LngLatBounds();
 
+  let validCount = 0;
+
+  habitations.forEach(
+    (habitation) => {
+      if (
+        !hasValidCoordinates(
+          habitation
+        )
+      ) {
+        return;
+      }
+
+      const latitude =
+        getLatitude(
+          habitation
+        );
+
+      const longitude =
+        getLongitude(
+          habitation
+        );
+
+      bounds.extend([
+        longitude,
+        latitude
+      ]);
+
+      validCount++;
+    }
+  );
+
+  if (
+    validCount === 0 ||
+    bounds.isEmpty()
+  ) {
+    return;
+  }
+
+  map.fitBounds(
+    bounds,
+    {
+      padding: 60,
+      maxZoom: 11,
+      duration: 800
+    }
+  );
+}
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
+
+function escapeHtml(value) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return '';
+  }
+
+  return String(value)
+    .replaceAll(
+      '&',
+      '&amp;'
+    )
+    .replaceAll(
+      '<',
+      '&lt;'
+    )
+    .replaceAll(
+      '>',
+      '&gt;'
+    )
+    .replaceAll(
+      '"',
+      '&quot;'
+    )
+    .replaceAll(
+      "'",
+      '&#039;'
+    );
 }
